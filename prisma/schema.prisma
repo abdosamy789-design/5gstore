@@ -1,0 +1,178 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+
+
+}
+
+// --- Auth & Settings ---
+
+model AdminCredentials {
+  id       String @id @default(cuid())
+  username String @unique
+  password String
+}
+
+model AgentUser {
+  id            String @id @default(cuid())
+  username      String @unique
+  password      String
+  distributorId String? // Optional, links to a Distributor
+}
+
+model AppSettings {
+  id                    String @id @default(cuid())
+  loginWelcomeMessage   String
+  notificationMessage   String
+}
+
+// --- Company & Financials ---
+
+model Company {
+  id               String @id @default(cuid())
+  name             String @unique
+  
+  // Relations
+  customers        Customer[]
+  plans            Plan[]
+  distributors     Distributor[]
+  invoices         Invoice[]
+  availableLines   AvailableLine[]
+  customerPayments CustomerPayment[]
+  expenses         Expense[]
+  financialCycle   FinancialCycle?
+}
+
+model FinancialCycle {
+  id                String @id @default(cuid())
+  lastBillingDate   DateTime
+  monthlyPayments   Float
+  monthlyProfits    Float
+  totalCommitments  Float
+  paidCommitments   Float
+  
+  companyId         String   @unique
+  company           Company  @relation(fields: [companyId], references: [id])
+}
+
+// --- Business Entities ---
+
+model Plan {
+  id              String @id @default(cuid())
+  name            String
+  flexUnits       Int
+  onNetMinutes    Int
+  sms             Int
+  dataAllowance   Int
+  validityDays    Int
+  purchasePrice   Float
+  sellingPrice    Float
+  
+  // Relations
+  companyId       String
+  company         Company @relation(fields: [companyId], references: [id])
+  customers       Customer[]
+  invoices        Invoice[]
+  availableLines  AvailableLine[]
+}
+
+model Customer {
+  id            String @id @default(cuid())
+  name          String
+  phone         String @unique
+  whatsapp      String
+  joinDate      DateTime
+  credit        Float
+  idCardFront   String? // base64
+  idCardBack    String? // base64
+  
+  // Relations
+  planId        String
+  plan          Plan     @relation(fields: [planId], references: [id])
+  distributorId String?
+  distributor   Distributor? @relation(fields: [distributorId], references: [id])
+  companyId     String
+  company       Company  @relation(fields: [companyId], references: [id])
+  invoices      Invoice[]
+  payments      CustomerPayment[]
+}
+
+model Distributor {
+  id            String @id @default(cuid())
+  name          String
+  phone         String
+  
+  // Relations
+  companyId     String
+  company       Company @relation(fields: [companyId], references: [id])
+  customers     Customer[]
+  payments      DistributorPayment[]
+}
+
+model DistributorPayment {
+  id            String @id @default(cuid())
+  amount        Float
+  date          DateTime
+  
+  // Relations
+  distributorId String
+  distributor   Distributor @relation(fields: [distributorId], references: [id])
+}
+
+model Invoice {
+  id            String @id @default(cuid())
+  issueDate     DateTime
+  totalAmount   Float
+  paidAmount    Float
+  status        String // 'paid' | 'due' | 'overdue'
+  
+  // Relations
+  customerId    String
+  customer      Customer @relation(fields: [customerId], references: [id])
+  planId        String
+  plan          Plan     @relation(fields: [planId], references: [id])
+  companyId     String
+  company       Company  @relation(fields: [companyId], references: [id])
+}
+
+model AvailableLine {
+  id            String @id @default(cuid())
+  phone         String @unique
+  
+  // Relations
+  planId        String
+  plan          Plan     @relation(fields: [planId], references: [id])
+  companyId     String
+  company       Company  @relation(fields: [companyId], references: [id])
+}
+
+model Expense {
+  id            String @id @default(cuid())
+  description   String
+  amount        Float
+  date          DateTime
+  isPaid        Boolean
+  
+  // Relations
+  companyId     String
+  company       Company @relation(fields: [companyId], references: [id])
+}
+
+model CustomerPayment {
+  id            String @id @default(cuid())
+  amount        Float
+  date          DateTime
+  
+  // Relations
+  customerId    String
+  customer      Customer @relation(fields: [customerId], references: [id])
+  companyId     String
+  company       Company @relation(fields: [companyId], references: [id])
+}
