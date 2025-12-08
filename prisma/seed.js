@@ -1,9 +1,11 @@
 const { PrismaClient } = require('@prisma/client');
-const { v4: uuidv4 } = require('uuid');
 
 const prisma = new PrismaClient();
 
 async function main() {
+  const foundAdmin = await prisma.adminCredentials.findFirst();
+  if (foundAdmin) return console.log("DB already seeded.");
+
   console.log('Start seeding...');
 
   // 1. Create Admin Credentials
@@ -129,7 +131,7 @@ async function main() {
   console.log('Customer created.');
 
   // 9. Create an Invoice for the customer
-  const invoice1 = await prisma.invoice.create({
+  await prisma.invoice.create({
     data: {
       issueDate: new Date().toISOString(),
       totalAmount: plan1.sellingPrice,
