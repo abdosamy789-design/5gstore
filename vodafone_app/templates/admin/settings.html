@@ -3,38 +3,85 @@
 {% block content %}
 <section class="admin-page">
   <h1>الإعدادات</h1>
+  <p class="section-lead">الدفع، بوابة SMS، الإشعارات، وكلمة مرور المدير.</p>
 
   <form method="post" class="order-form">
+    <h2>الدفع</h2>
     <label>
       رقم فودافون كاش لاستلام التحويلات
       <input name="vodafone_cash_number" value="{{ cash_number }}" dir="ltr" required />
     </label>
+    <label>
+      عنوان إنستاباي (IPA / رقم)
+      <input name="instapay_address" value="{{ instapay_address }}" dir="ltr" placeholder="name@instapay أو رقم" />
+    </label>
 
+    <h2>بوابة SMS للتطبيق الأندرويد</h2>
     <label>
       توكن تطبيق الموبايل (X-Webhook-Token)
       <input name="webhook_token" value="{{ webhook_token }}" dir="ltr" required />
     </label>
-
     <label>
-      لينك بوابة الدفع (حطه في الأبلكيشن)
+      لينك بوابة الدفع
       <input type="text" value="{{ webhook_url }}" dir="ltr" readonly onclick="this.select()" />
-      <span class="field-hint">POST على اللينك ده مع الهيدر X-Webhook-Token وجسم JSON فيه message</span>
+      <span class="field-hint">POST + هيدر X-Webhook-Token + JSON فيه message / sender / amount / provider</span>
     </label>
 
+    <h2>تنبيهات المدير (تليجرام)</h2>
     <label>
-      تغيير كلمة مرور المدير (اختياري)
-      <input type="password" name="new_password" minlength="6" placeholder="اتركه فاضي لو مش هتغير" />
+      Telegram Bot Token
+      <input name="telegram_bot_token" value="{{ telegram_bot_token }}" dir="ltr" autocomplete="off" />
+    </label>
+    <label>
+      Telegram Chat ID
+      <input name="telegram_chat_id" value="{{ telegram_chat_id }}" dir="ltr" />
+    </label>
+
+    <h2>تنبيهات العميل (واتساب)</h2>
+    <label>
+      مزود الواتساب
+      <select name="whatsapp_provider">
+        <option value="callmebot" {% if whatsapp_provider=='callmebot' %}selected{% endif %}>CallMeBot</option>
+        <option value="ultramsg" {% if whatsapp_provider=='ultramsg' %}selected{% endif %}>Ultramsg</option>
+        <option value="webhook" {% if whatsapp_provider=='webhook' %}selected{% endif %}>Webhook مخصص</option>
+      </select>
+    </label>
+    <label>
+      API Key / Token
+      <input name="whatsapp_api_key" value="{{ whatsapp_api_key }}" dir="ltr" autocomplete="off" />
+    </label>
+    <label>
+      Ultramsg Instance ID
+      <input name="whatsapp_instance_id" value="{{ whatsapp_instance_id }}" dir="ltr" />
+    </label>
+    <label>
+      WhatsApp Webhook URL
+      <input name="whatsapp_webhook_url" value="{{ whatsapp_webhook_url }}" dir="ltr" />
+    </label>
+
+    <h2>الأمان</h2>
+    <label>
+      وضع التحقق من فودافون (من ملف .env)
+      <input type="text" value="{{ verify_mode }}" dir="ltr" readonly />
+      <span class="field-hint">mock أو prefix أو live — غيّره عبر VODAFONE_VERIFY_MODE</span>
+    </label>
+    <label>
+      تغيير كلمة مرور المدير (8 أحرف على الأقل)
+      <input type="password" name="new_password" minlength="8" placeholder="اتركه فاضي لو مش هتغير" />
     </label>
 
     <button type="submit" class="btn btn-primary">حفظ</button>
   </form>
 
   <div class="code-box">
-    <h2>مثال طلب من الموبايل</h2>
+    <h2>مثال طلب من تطبيق الأندرويد</h2>
     <pre dir="ltr">{
-  "message": "تم استلام 100 EGP من الرقم 01012345678",
+  "message": "تم استلام 100 EGP من الرقم 01012345678 رقم العملية TXN998877",
   "sender": "01012345678",
-  "amount": 100
+  "amount": 100,
+  "provider": "vodafone_cash",
+  "transaction_ref": "TXN998877",
+  "sender_app": "Vodafone Cash"
 }</pre>
   </div>
 </section>

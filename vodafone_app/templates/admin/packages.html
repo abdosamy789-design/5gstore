@@ -3,9 +3,10 @@
 {% block content %}
 <section class="admin-page">
   <h1>باقات فودافون ريد</h1>
-  <p class="section-lead">حدد الباقات اللي تظهر للعميل في الموقع.</p>
+  <p class="section-lead">أضف باقات جديدة أو عدّل الأسعار والمواصفات.</p>
 
   <form method="post" class="order-form compact-form">
+    <input type="hidden" name="action" value="create" />
     <h2>إضافة باقة</h2>
     <div class="form-grid">
       <label>الاسم<input name="name" required placeholder="فودافون ريد 100" /></label>
@@ -22,9 +23,7 @@
     <table>
       <thead>
         <tr>
-          <th>الاسم</th>
-          <th>السعر</th>
-          <th>البيانات</th>
+          <th>تعديل السعر</th>
           <th>نشطة؟</th>
           <th></th>
         </tr>
@@ -32,9 +31,21 @@
       <tbody>
         {% for p in packages %}
         <tr>
-          <td>{{ p.name }}</td>
-          <td>{{ '%.0f'|format(p.price) }}</td>
-          <td>{{ p.data_gb }} جيجا / {{ p.minutes }} دقيقة</td>
+          <td>
+            <form method="post" class="inline-edit-form">
+              <input type="hidden" name="action" value="update" />
+              <input type="hidden" name="package_id" value="{{ p.id }}" />
+              <div class="form-grid">
+                <label>الاسم<input name="name" value="{{ p.name }}" required /></label>
+                <label>السعر<input name="price" type="number" step="0.01" value="{{ p.price }}" required /></label>
+                <label>جيجا<input name="data_gb" type="number" step="0.1" value="{{ p.data_gb }}" /></label>
+                <label>دقايق<input name="minutes" type="number" value="{{ p.minutes }}" /></label>
+                <label>أيام<input name="validity_days" type="number" value="{{ p.validity_days }}" /></label>
+                <label>وصف<input name="description" value="{{ p.description or '' }}" /></label>
+              </div>
+              <button class="btn btn-primary btn-sm" type="submit">حفظ التعديل</button>
+            </form>
+          </td>
           <td>{{ 'نعم' if p.is_active else 'لا' }}</td>
           <td>
             <form method="post" action="{{ url_for('admin_toggle_package', package_id=p.id) }}">

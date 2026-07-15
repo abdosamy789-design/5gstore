@@ -9,6 +9,7 @@
     <div class="stat"><span>مدفوع</span><strong>{{ stats.paid }}</strong></div>
     <div class="stat"><span>تم التنفيذ</span><strong>{{ stats.fulfilled }}</strong></div>
     <div class="stat"><span>باقات نشطة</span><strong>{{ stats.packages }}</strong></div>
+    <div class="stat"><span>رسائل SMS</span><strong>{{ stats.events }}</strong></div>
   </div>
 
   <h2>آخر الطلبات</h2>
@@ -32,7 +33,7 @@
           <td dir="ltr">{{ o.vodafone_number }}</td>
           <td>{{ o.package.name }}</td>
           <td>{{ '%.0f'|format(o.amount) }}</td>
-          <td>{{ o.status }}</td>
+          <td>{{ status_labels.get(o.status, o.status) }}</td>
         </tr>
         {% else %}
         <tr><td colspan="6">لا توجد طلبات بعد</td></tr>

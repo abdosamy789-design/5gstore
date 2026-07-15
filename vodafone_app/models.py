@@ -3,6 +3,8 @@ from datetime import datetime, timezone
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import check_password_hash, generate_password_hash
 
+from services.crypto import decrypt_text, encrypt_text
+
 db = SQLAlchemy()
 
 
@@ -56,14 +58,21 @@ class Order(db.Model):
 
     customer_name = db.Column(db.String(120), nullable=False)
     vodafone_number = db.Column(db.String(20), nullable=False)
-    national_id = db.Column(db.String(20), default="")
+    whatsapp_number = db.Column(db.String(20), default="")
+
+    # Encrypted at rest
+    _national_id = db.Column("national_id", db.Text, default="")
+    _account_password = db.Column("account_password", db.Text, default="")
+
+    account_verified = db.Column(db.Boolean, default=False)
+    verification_mode = db.Column(db.String(20), default="")
+    verification_message = db.Column(db.Text, default="")
 
     package_id = db.Column(db.Integer, db.ForeignKey("packages.id"), nullable=False)
     amount = db.Column(db.Float, nullable=False)
 
-    # Number shown to customer to transfer to (Vodafone Cash)
     pay_to_number = db.Column(db.String(20), nullable=False)
-    # Number the customer claims they transferred from
+    instapay_address = db.Column(db.String(120), default="")
     sender_number = db.Column(db.String(20), default="")
 
     status = db.Column(
@@ -80,9 +89,32 @@ class Order(db.Model):
         "PaymentEvent", back_populates="order", lazy="dynamic"
     )
 
+    @property
+    def national_id(self) -> str:
+        return decrypt_text(self._national_id)
+
+    @national_id.setter
+    def national_id(self, value: str) -> None:
+        self._national_id = encrypt_text(value) if value else ""
+
+    @property
+    def account_password(self) -> str:
+        return decrypt_text(self._account_password)
+
+    @account_password.setter
+    def account_password(self, value: str) -> None:
+        self._account_password = encrypt_text(value) if value else ""
+
+    @property
+    def national_id_masked(self) -> str:
+        nid = self.national_id
+        if len(nid) < 6:
+            return "••••" if nid else ""
+        return nid[:3] + "••••••" + nid[-3:]
+
 
 class PaymentEvent(db.Model):
-    """Incoming SMS / webhook notifications from the mobile payment app."""
+    """Incoming SMS / webhook notifications from the Android P2P reader."""
 
     __tablename__ = "payment_events"
 
@@ -90,6 +122,8 @@ class PaymentEvent(db.Model):
     raw_message = db.Column(db.Text, nullable=False)
     sender_number = db.Column(db.String(20), default="")
     amount = db.Column(db.Float, nullable=True)
+    provider = db.Column(db.String(40), default="unknown")
+    transaction_ref = db.Column(db.String(80), default="")
     matched = db.Column(db.Boolean, default=False)
     order_id = db.Column(db.Integer, db.ForeignKey("orders.id"), nullable=True)
     created_at = db.Column(db.DateTime, default=utcnow)

