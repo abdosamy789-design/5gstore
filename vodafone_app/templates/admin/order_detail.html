@@ -9,21 +9,32 @@
     <div class="pay-row"><span>رقم الخط</span><strong dir="ltr">{{ order.vodafone_number }}</strong></div>
     <div class="pay-row"><span>واتساب</span><strong dir="ltr">{{ order.whatsapp_number or '—' }}</strong></div>
     <div class="pay-row"><span>الرقم القومي (مشفّر)</span><strong dir="ltr">{{ order.national_id_masked or '—' }}</strong></div>
-    <div class="pay-row"><span>التحقق من الحساب</span><strong>{{ 'تم' if order.account_verified else 'لا' }} — {{ order.verification_mode }}</strong></div>
+    <div class="pay-row"><span>التحقق</span><strong>{{ 'تم' if order.account_verified else 'لا' }} — {{ order.verification_mode }}</strong></div>
     <div class="pay-row"><span>نتيجة التحقق</span><strong>{{ order.verification_message or '—' }}</strong></div>
+    <div class="pay-row"><span>Task ID</span><strong dir="ltr">{{ order.verification_task_id or '—' }}</strong></div>
     <div class="pay-row"><span>الباقة</span><strong>{{ order.package.name }}</strong></div>
     <div class="pay-row"><span>المبلغ</span><strong>{{ '%.0f'|format(order.amount) }} ج.م</strong></div>
-    <div class="pay-row"><span>فودافون كاش</span><strong dir="ltr">{{ order.pay_to_number }}</strong></div>
+    <div class="pay-row"><span>محفظة الاستلام</span><strong dir="ltr">{{ order.pay_to_number or '—' }}</strong></div>
     <div class="pay-row"><span>إنستاباي</span><strong dir="ltr">{{ order.instapay_address or '—' }}</strong></div>
     <div class="pay-row"><span>حوّل من</span><strong dir="ltr">{{ order.sender_number or '—' }}</strong></div>
+    <div class="pay-row"><span>موزع</span><strong>{{ order.reseller_id or '—' }}</strong></div>
+    <div class="pay-row"><span>دفع من محفظة؟</span><strong>{{ 'نعم' if order.paid_from_wallet else 'لا' }}</strong></div>
     <div class="pay-row"><span>الحالة</span><strong>{{ status_labels.get(order.status, order.status) }}</strong></div>
+    <div class="pay-row"><span>تجديد متوقع</span><strong>{{ order.renewal_at or '—' }}</strong></div>
+    <div class="pay-row"><span>تذكير واتساب</span><strong>{{ 'أُرسل' if order.reminder_sent else 'لم يُرسل' }}</strong></div>
     <div class="pay-row"><span>تاريخ الإنشاء</span><strong>{{ order.created_at }}</strong></div>
   </div>
 
   <form method="post" class="action-row">
     <button name="action" value="mark_paid" class="btn btn-secondary">تأكيد الدفع يدوياً</button>
     <button name="action" value="mark_fulfilled" class="btn btn-primary">تم تفعيل الباقة</button>
+    <button name="action" value="activation_failed" class="btn btn-danger">فشل التفعيل → رد للمحفظة</button>
     <button name="action" value="reject" class="btn btn-danger">رفض</button>
+  </form>
+  <form method="post" class="order-form">
+    <input type="hidden" name="action" value="activation_failed" />
+    <label>سبب فشل التفعيل (اختياري)<input name="fail_reason" /></label>
+    <button class="btn btn-secondary" type="submit">تأكيد الفشل والرد</button>
   </form>
 
   <form method="post" class="order-form">

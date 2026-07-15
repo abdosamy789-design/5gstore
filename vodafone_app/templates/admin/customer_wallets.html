@@ -1,0 +1,32 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}محافظ العملاء{% endblock %}
+{% block content %}
+<section class="admin-page">
+  <h1>المحفظة الداخلية للعملاء</h1>
+  <p class="section-lead">أرصدة المستردات بعد فشل التفعيل.</p>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>الهاتف</th>
+          <th>الاسم</th>
+          <th>الرصيد</th>
+          <th>آخر تحديث</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for w in wallets %}
+        <tr>
+          <td dir="ltr">{{ w.phone }}</td>
+          <td>{{ w.name or '—' }}</td>
+          <td>{{ '%.2f'|format(w.balance or 0) }} ج.م</td>
+          <td>{{ w.updated_at }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4">لا توجد محافظ بعد</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

@@ -3,7 +3,7 @@
 {% block content %}
 <section class="section payment-section">
   <h1>إتمام الدفع</h1>
-  <p class="section-lead">حوّل المبلغ عبر فودافون كاش أو إنستاباي، ثم سجّل رقم المحول للمطابقة التلقائية.</p>
+  <p class="section-lead">حوّل على رقم المحفظة الظاهر (يتم تدويره تلقائياً)، أو ادفع من رصيد محفظتك الداخلية.</p>
 
   {% if order.account_verified %}
   <p class="status-banner ok">تم التحقق من حساب فودافون — {{ order.verification_message }}</p>
@@ -23,8 +23,8 @@
       <strong>{{ '%.0f'|format(order.amount) }} ج.م</strong>
     </div>
     <div class="pay-row pay-to">
-      <span>فودافون كاش</span>
-      <strong class="cash-number" dir="ltr">{{ order.pay_to_number }}</strong>
+      <span>حوّل على (كاش)</span>
+      <strong class="cash-number" dir="ltr">{{ order.pay_to_number or '—' }}</strong>
     </div>
     {% if order.instapay_address %}
     <div class="pay-row pay-to">
@@ -36,13 +36,26 @@
       <span>رقم خط التفعيل</span>
       <strong dir="ltr">{{ order.vodafone_number }}</strong>
     </div>
+    {% if wallet %}
+    <div class="pay-row">
+      <span>رصيد محفظتك</span>
+      <strong>{{ '%.2f'|format(wallet.balance or 0) }} ج.م</strong>
+    </div>
+    {% endif %}
   </div>
 
-  {% if order.status in ['paid', 'fulfilled'] %}
+  {% if order.status in ['paid', 'fulfilled', 'refunded_wallet'] %}
   <p class="status-banner ok">تم تأكيد الدفع بالفعل. حالة الطلب: {{ order.status }}</p>
   <a class="btn btn-primary" href="{{ url_for('order_status', reference=order.reference) }}">متابعة حالة الطلب</a>
   {% else %}
+  {% if wallet and wallet.balance >= order.amount %}
   <form method="post" class="order-form">
+    <input type="hidden" name="action" value="wallet" />
+    <button type="submit" class="btn btn-primary">ادفع من المحفظة الداخلية</button>
+  </form>
+  {% endif %}
+  <form method="post" class="order-form">
+    <input type="hidden" name="action" value="cash" />
     <label>
       رقم المحفظة / المحول منه
       <input type="tel" name="sender_number" required placeholder="010xxxxxxxx"

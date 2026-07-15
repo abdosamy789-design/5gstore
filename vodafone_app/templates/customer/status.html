@@ -29,15 +29,16 @@
       <span>رقم التحويل منه</span>
       <strong dir="ltr">{{ order.sender_number or '—' }}</strong>
     </div>
+    {% if wallet %}
+    <div class="pay-row">
+      <span>رصيد المحفظة</span>
+      <strong>{{ '%.2f'|format(wallet.balance or 0) }} ج.م</strong>
+    </div>
+    {% endif %}
     <div class="pay-row highlight">
       <span>الحالة</span>
-      <strong class="status-{{ order.status }}">
-        {% if order.status == 'awaiting_payment' %}في انتظار الدفع
-        {% elif order.status == 'payment_submitted' %}تم تسجيل التحويل — جاري التحقق
-        {% elif order.status == 'paid' %}تم تأكيد الدفع
-        {% elif order.status == 'fulfilled' %}تم تنفيذ الطلب
-        {% elif order.status == 'rejected' %}مرفوض
-        {% else %}{{ order.status }}{% endif %}
+      <strong class="status-{{ order.status }}" id="status-label">
+        {{ status_labels.get(order.status, order.status) }}
       </strong>
     </div>
   </div>
@@ -46,7 +47,34 @@
     {% if order.status in ['awaiting_payment', 'payment_submitted'] %}
     <a class="btn btn-secondary" href="{{ url_for('payment_page', reference=order.reference) }}">صفحة الدفع</a>
     {% endif %}
+    {% if order.status == 'refunded_wallet' %}
+    <a class="btn btn-primary" href="{{ url_for('retry_with_wallet', reference=order.reference) }}">إعادة المحاولة برقم آخر</a>
+    {% endif %}
+    <a class="btn btn-secondary" href="{{ url_for('customer_wallet_page') }}">محفظتي</a>
     <a class="btn btn-primary" href="{{ url_for('home') }}">العودة للرئيسية</a>
   </div>
 </section>
+{% endblock %}
+
+{% block scripts %}
+{% if order.status == 'verifying' %}
+<script>
+  async function poll() {
+    const res = await fetch('{{ url_for("order_status_api", reference=order.reference) }}');
+    const data = await res.json();
+    const el = document.getElementById('status-label');
+    if (el) el.textContent = data.status_label || data.status;
+    if (data.status === 'awaiting_payment') {
+      window.location.href = '{{ url_for("payment_page", reference=order.reference) }}';
+      return;
+    }
+    if (data.status !== 'verifying') {
+      window.location.reload();
+      return;
+    }
+    setTimeout(poll, 2000);
+  }
+  setTimeout(poll, 1500);
+</script>
+{% endif %}
 {% endblock %}

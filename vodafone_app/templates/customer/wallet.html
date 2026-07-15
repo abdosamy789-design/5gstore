@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}المحفظة الداخلية{% endblock %}
+{% block content %}
+<section class="section form-section">
+  <h1>محفظتي</h1>
+  <p class="section-lead">استعلم عن رصيد المستردات وأعد المحاولة برقم آخر.</p>
+
+  <form method="post" class="order-form">
+    <label>
+      رقم الموبايل المرتبط بالمحفظة
+      <input name="phone" value="{{ phone }}" required dir="ltr" placeholder="01xxxxxxxxx" />
+    </label>
+    <button class="btn btn-primary" type="submit">عرض الرصيد</button>
+  </form>
+
+  {% if error %}<ul class="error-list"><li>{{ error }}</li></ul>{% endif %}
+
+  {% if wallet %}
+  <div class="pay-panel" style="margin-top:1.5rem">
+    <div class="pay-row highlight">
+      <span>الرصيد</span>
+      <strong>{{ '%.2f'|format(wallet.balance or 0) }} ج.م</strong>
+    </div>
+    <div class="pay-row">
+      <span>الهاتف</span>
+      <strong dir="ltr">{{ wallet.phone }}</strong>
+    </div>
+  </div>
+
+  <h2>الحركات</h2>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>المبلغ</th><th>السبب</th><th>بعد الحركة</th><th>الوقت</th></tr>
+      </thead>
+      <tbody>
+        {% for row in ledger %}
+        <tr>
+          <td>{{ '%.2f'|format(row.amount) }}</td>
+          <td>{{ row.reason }}</td>
+          <td>{{ '%.2f'|format(row.balance_after) }}</td>
+          <td>{{ row.created_at }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4">لا توجد حركات</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

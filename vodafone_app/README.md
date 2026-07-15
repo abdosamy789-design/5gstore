@@ -1,12 +1,18 @@
 # فودافون ريد — منصة التسجيل والتفعيل
 
-تطبيق Flask لبيع وتفعيل باقات فودافون ريد مصر مع:
+تطبيق Flask لبيع وتفعيل باقات فودافون ريد مصر.
 
-1. **بوابة دفع P2P SMS** — استقبال رسائل الكاش وإنستاباي من تطبيق أندرويد ومطابقة (رقم المحول + المبلغ) تلقائياً
-2. **تحقق حساب فودافون** — تحقق من بيانات الحساب قبل الدفع (وضع mock / prefix / Playwright live)
-3. **لوحة مدير** — طلبات، حالات دفع، تعديل أسعار، تصدير CSV
+## المميزات
+
+1. **بوابة دفع P2P SMS** — فودافون كاش / إنستاباي / محافظ أخرى عبر تطبيق أندرويد
+2. **تحقق حساب فودافون** — في الخلفية عبر **Celery + Redis** (أو وضع eager للتطوير)
+3. **لوحة مدير** — طلبات، أسعار، تصدير CSV، محافظ، موزعون
 4. **تنبيهات** — تليجرام للمدير وواتساب للعميل
-5. **تشفير** — الرقم القومي وكلمة مرور الحساب مشفّران بـ Fernet
+5. **تشفير** — الرقم القومي وكلمة مرور الحساب (Fernet)
+6. **موزعون B2B** — رصيد مسبق + أسعار جملة (`/reseller/login`)
+7. **محفظة داخلية** — رد تلقائي عند فشل التفعيل وإعادة المحاولة برقم آخر
+8. **تدوير محافظ الكاش** — حدود يومية/شهرية واختيار تلقائي
+9. **تذكير تجديد** — Celery Beat يرسل واتساب قبل التجديد بـ 3 أيام
 
 ## التشغيل
 
@@ -16,69 +22,34 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
-# للتحقق الحي فقط:
-# playwright install chromium
+
+# Redis (للإنتاج)
+# sudo apt install redis-server
+# celery -A celery_app.celery_app worker -l info
+# celery -A celery_app.celery_app beat -l info
+
+# للتطوير بدون Redis:
+# CELERY_TASK_ALWAYS_EAGER=1
+
 python run.py
 ```
 
 - الموقع: http://127.0.0.1:5000
-- المدير: http://127.0.0.1:5000/admin/login  
-  الافتراضي: `admin` / `Admin@Red2026!` — غيّره فوراً من الإعدادات أو `.env`
+- المدير: `/admin/login` — `admin` / `Admin@Red2026!`
+- الموزع: `/reseller/login`
+- المحفظة: `/wallet`
 
-## إعدادات مهمة (`.env`)
+## Celery
 
-| المتغير | الوصف |
-|---------|--------|
-| `SECRET_KEY` | مفتاح جلسات Flask |
-| `ENCRYPTION_KEY` | مفتاح Fernet (أو يُشتق من SECRET_KEY) |
-| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | دخول المدير |
-| `PAYMENT_WEBHOOK_TOKEN` | توكن تطبيق الأندرويد |
-| `VODAFONE_CASH_NUMBER` | رقم استلام فودافون كاش |
-| `INSTAPAY_ADDRESS` | عنوان إنستاباي |
-| `VODAFONE_VERIFY_MODE` | `mock` أو `prefix` أو `live` |
-| `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | تنبيهات المدير |
-| `WHATSAPP_*` | تنبيهات العميل (callmebot / ultramsg / webhook) |
+| مهمة | الوظيفة |
+|------|---------|
+| `services.tasks.verify_order_account` | تحقق حساب فودافون بعد إنشاء الطلب |
+| `services.tasks.mark_activation_failed` | فشل تفعيل → شحن محفظة العميل |
+| `services.tasks.send_renewal_reminders` | تذكير واتساب (جدولة يومية 10:00) |
+| `services.tasks.reset_cash_wallet_counters` | تصفير عدّادات المحافظ |
 
-يمكن أيضاً ضبط معظم القيم من **لوحة المدير → الإعدادات**.
-
-## ربط تطبيق الأندرويد (P2P SMS)
-
-التطبيق يقرأ SMS من فودافون كاش / إنستاباي / محافظ أخرى ويرسل:
-
-```http
-POST /api/payment/webhook
-X-Webhook-Token: <التوكن>
-Content-Type: application/json
-
-{
-  "message": "تم استلام 100 EGP من الرقم 01012345678 رقم العملية TXN998877",
-  "sender": "01012345678",
-  "amount": 100,
-  "provider": "vodafone_cash",
-  "transaction_ref": "TXN998877",
-  "sender_app": "Vodafone Cash"
-}
-```
-
-المزوّدات المدعومة في الـ parser: `vodafone_cash`, `instapay`, `orange_cash`, `etisalat_cash`, `we_pay`.
-
-عند تطابق رقم المحول والمبلغ مع طلب معلّق تتحول الحالة إلى **مدفوع** ويُرسل إشعار.
-
-## التحقق من حساب فودافون
-
-- `prefix`: التحقق من نطاق 010 فقط
-- `mock` (افتراضي): تحقق الشكل + الرقم القومي + كلمة المرور — مناسب للتطوير والاختبار
-- `live`: Playwright يفتح بوابة فودافون ويحاول التحقق (يتطلب `playwright install chromium`)
-
-## الأمان
-
-- كلمات مرور المدير مخزّنة بـ Werkzeug hash
-- الرقم القومي وكلمة مرور الحساب مشفّران في قاعدة البيانات
-- الرقم القومي يظهر مقنّعاً في لوحة المدير
-- توكن الـ webhook يُقارن بـ `secrets.compare_digest`
-
-## الاختبار السريع
+## الاختبار
 
 ```bash
-python tests/test_core.py
+CELERY_TASK_ALWAYS_EAGER=1 python tests/test_core.py
 ```

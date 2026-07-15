@@ -14,12 +14,15 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 STATUS_AR = {
+    "verifying": "جاري التحقق من الحساب",
+    "verification_failed": "فشل التحقق",
     "awaiting_payment": "في انتظار الدفع",
     "payment_submitted": "تم تسجيل التحويل — جاري المطابقة",
     "paid": "تم تأكيد الدفع",
     "fulfilled": "تم تفعيل الباقة",
+    "activation_failed": "فشل التفعيل",
+    "refunded_wallet": "تم رد المبلغ للمحفظة الداخلية",
     "rejected": "مرفوض",
-    "verifying": "جاري التحقق من الحساب",
 }
 
 

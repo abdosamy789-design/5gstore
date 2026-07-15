@@ -1,0 +1,62 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}الموزعون{% endblock %}
+{% block content %}
+<section class="admin-page">
+  <h1>حسابات الموزعين (B2B)</h1>
+  <p class="section-lead">رصيد مسبق الدفع بأسعار الجملة. بوابة الموزع: /reseller/login</p>
+
+  <form method="post" class="order-form compact-form">
+    <input type="hidden" name="action" value="create" />
+    <h2>إنشاء موزع</h2>
+    <div class="form-grid">
+      <label>اسم المستخدم<input name="username" required dir="ltr" /></label>
+      <label>كلمة المرور<input name="password" type="password" required minlength="6" /></label>
+      <label>اسم الشركة<input name="company_name" /></label>
+      <label>هاتف<input name="phone" dir="ltr" /></label>
+      <label>رصيد ابتدائي<input name="balance" type="number" step="0.01" value="0" /></label>
+    </div>
+    <button class="btn btn-primary" type="submit">إنشاء</button>
+  </form>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>المستخدم</th>
+          <th>الشركة</th>
+          <th>الهاتف</th>
+          <th>الرصيد</th>
+          <th>نشط</th>
+          <th>شحن</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in resellers %}
+        <tr>
+          <td dir="ltr">{{ r.username }}</td>
+          <td>{{ r.company_name or '—' }}</td>
+          <td dir="ltr">{{ r.phone or '—' }}</td>
+          <td>{{ '%.2f'|format(r.balance or 0) }} ج.م</td>
+          <td>{{ 'نعم' if r.is_active else 'لا' }}</td>
+          <td>
+            <form method="post" class="inline-edit-form">
+              <input type="hidden" name="action" value="topup" />
+              <input type="hidden" name="reseller_id" value="{{ r.id }}" />
+              <label>مبلغ<input name="amount" type="number" step="0.01" required /></label>
+              <button class="btn btn-primary btn-sm" type="submit">شحن</button>
+            </form>
+            <form method="post">
+              <input type="hidden" name="action" value="toggle" />
+              <input type="hidden" name="reseller_id" value="{{ r.id }}" />
+              <button class="btn btn-secondary btn-sm">{{ 'إيقاف' if r.is_active else 'تفعيل' }}</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6">لا يوجد موزعون</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

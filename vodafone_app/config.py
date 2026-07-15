@@ -23,7 +23,6 @@ class Config:
     VODAFONE_CASH_NUMBER = os.getenv("VODAFONE_CASH_NUMBER", "01000000000")
     INSTAPAY_ADDRESS = os.getenv("INSTAPAY_ADDRESS", "")
 
-    # mock | prefix | live
     VODAFONE_VERIFY_MODE = os.getenv("VODAFONE_VERIFY_MODE", "mock")
     VODAFONE_PORTAL_URL = os.getenv(
         "VODAFONE_PORTAL_URL", "https://web.vodafone.com.eg/ar/home"
@@ -37,3 +36,9 @@ class Config:
     WHATSAPP_WEBHOOK_URL = os.getenv("WHATSAPP_WEBHOOK_URL", "")
 
     ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY", "")
+
+    CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
+    CELERY_RESULT_BACKEND = os.getenv(
+        "CELERY_RESULT_BACKEND", os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
+    )
+    CELERY_TASK_ALWAYS_EAGER = os.getenv("CELERY_TASK_ALWAYS_EAGER", "0")

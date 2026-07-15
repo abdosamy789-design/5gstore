@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}دخول الموزع{% endblock %}
+{% block content %}
+<section class="section form-section">
+  <h1>بوابة الموزعين</h1>
+  <p class="section-lead">سجّل الدخول لإدارة طلبات الجملة والرصيد المسبق.</p>
+  {% if error %}<ul class="error-list"><li>{{ error }}</li></ul>{% endif %}
+  <form method="post" class="order-form">
+    <label>اسم المستخدم<input name="username" required dir="ltr" /></label>
+    <label>كلمة المرور<input name="password" type="password" required /></label>
+    <button class="btn btn-primary" type="submit">دخول</button>
+  </form>
+</section>
+{% endblock %}

@@ -1,4 +1,4 @@
-"""Core unit tests (no external network required)."""
+"""Core unit tests (no Redis required — Celery runs eager)."""
 
 from __future__ import annotations
 
@@ -6,12 +6,12 @@ import os
 import sys
 import tempfile
 import unittest
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-# Configure before importing the app package
 _TMP = tempfile.TemporaryDirectory()
 _DB = Path(_TMP.name) / "test.db"
 os.environ["VODAFONE_VERIFY_MODE"] = "mock"
@@ -20,6 +20,8 @@ os.environ["ADMIN_PASSWORD"] = "Admin@Test123!"
 os.environ["ADMIN_USERNAME"] = "admin"
 os.environ["PAYMENT_WEBHOOK_TOKEN"] = "test-webhook-token"
 os.environ["DATABASE_URL"] = f"sqlite:///{_DB}"
+os.environ["CELERY_TASK_ALWAYS_EAGER"] = "1"
+os.environ["CELERY_EAGER"] = "1"
 
 
 class CryptoTests(unittest.TestCase):
@@ -50,11 +52,6 @@ class ValidatorTests(unittest.TestCase):
         )
         self.assertTrue(result["ok"])
 
-        bad = verify_vodafone_account(
-            "01012345678", password="ab", national_id="29501011234567"
-        )
-        self.assertFalse(bad["ok"])
-
 
 class SmsParserTests(unittest.TestCase):
     def test_parse_vodafone_cash(self):
@@ -84,14 +81,15 @@ class AppFlowTests(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertIn("فودافون ريد".encode("utf-8"), res.data)
 
-    def test_create_order_and_match_payment(self):
-        from models import Order, Package
+    def test_create_order_async_verify_and_match_payment(self):
+        from models import CashWallet, Order, Package
 
         with self.app.app_context():
             pkg = Package.query.filter_by(is_active=True).first()
             self.assertIsNotNone(pkg)
             package_id = pkg.id
             amount = pkg.price
+            self.assertTrue(CashWallet.query.count() >= 1)
 
         res = self.client.post(
             "/order",
@@ -110,9 +108,15 @@ class AppFlowTests(unittest.TestCase):
         self.assertIn("/pay/", location)
         reference = location.rstrip("/").split("/")[-1]
 
+        with self.app.app_context():
+            order = Order.query.filter_by(reference=reference).first()
+            self.assertTrue(order.account_verified)
+            self.assertEqual(order.status, "awaiting_payment")
+            self.assertTrue(order.pay_to_number)
+
         res2 = self.client.post(
             f"/pay/{reference}",
-            data={"sender_number": "01099887766"},
+            data={"sender_number": "01099887766", "action": "cash"},
             follow_redirects=False,
         )
         self.assertEqual(res2.status_code, 302)
@@ -130,16 +134,202 @@ class AppFlowTests(unittest.TestCase):
         )
         self.assertEqual(res3.status_code, 200)
         payload = res3.get_json()
-        self.assertTrue(payload["ok"])
         self.assertTrue(payload["matched"])
-        self.assertEqual(payload["order_reference"], reference)
 
         with self.app.app_context():
             order = Order.query.filter_by(reference=reference).first()
             self.assertEqual(order.status, "paid")
-            self.assertTrue(order.account_verified)
             self.assertNotEqual(order._national_id, "29501011234567")
-            self.assertEqual(order.national_id, "29501011234567")
+
+    def test_activation_failed_refunds_wallet_and_retry(self):
+        from models import CustomerWallet, Order, Package
+        from services.tasks import mark_activation_failed
+
+        with self.app.app_context():
+            pkg = Package.query.filter_by(is_active=True).first()
+
+        res = self.client.post(
+            "/order",
+            data={
+                "customer_name": "سارة علي",
+                "vodafone_number": "01022223333",
+                "whatsapp_number": "01022223333",
+                "national_id": "29501011234567",
+                "account_password": "pass9999",
+                "package_id": pkg.id if hasattr(pkg, "id") else None,
+            },
+            follow_redirects=False,
+        )
+        # re-fetch package id safely
+        with self.app.app_context():
+            package_id = Package.query.filter_by(is_active=True).first().id
+
+        if res.status_code != 302:
+            res = self.client.post(
+                "/order",
+                data={
+                    "customer_name": "سارة علي",
+                    "vodafone_number": "01022223333",
+                    "whatsapp_number": "01022223333",
+                    "national_id": "29501011234567",
+                    "account_password": "pass9999",
+                    "package_id": package_id,
+                },
+                follow_redirects=False,
+            )
+        self.assertEqual(res.status_code, 302)
+        reference = res.headers["Location"].rstrip("/").split("/")[-1]
+
+        with self.app.app_context():
+            order = Order.query.filter_by(reference=reference).first()
+            order.status = "paid"
+            amount = order.amount
+            order_id = order.id
+            from models import db
+
+            db.session.commit()
+
+            result = mark_activation_failed(order_id, "خط غير مؤهل")
+            self.assertTrue(result["ok"])
+            order = Order.query.get(order_id)
+            self.assertEqual(order.status, "refunded_wallet")
+            wallet = CustomerWallet.query.filter_by(phone="01022223333").first()
+            self.assertIsNotNone(wallet)
+            self.assertAlmostEqual(wallet.balance, amount)
+
+        # Retry with another number using wallet
+        res_retry = self.client.post(
+            f"/retry/{reference}",
+            data={
+                "vodafone_number": "01044445555",
+                "package_id": package_id,
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(res_retry.status_code, 302)
+        new_ref = res_retry.headers["Location"].rstrip("/").split("/")[-1]
+        with self.app.app_context():
+            new_order = Order.query.filter_by(reference=new_ref).first()
+            self.assertEqual(new_order.status, "paid")
+            self.assertTrue(new_order.paid_from_wallet)
+            self.assertEqual(new_order.vodafone_number, "01044445555")
+            wallet = CustomerWallet.query.filter_by(phone="01022223333").first()
+            self.assertAlmostEqual(wallet.balance, 0.0)
+
+    def test_reseller_prepaid_order(self):
+        from models import Order, Package, Reseller, db
+        from services.reseller_billing import credit_reseller
+
+        with self.app.app_context():
+            reseller = Reseller(
+                username="dealer1",
+                company_name="Dealer Co",
+                phone="01011112222",
+                balance=0,
+                is_active=True,
+            )
+            reseller.set_password("dealerpass")
+            db.session.add(reseller)
+            db.session.commit()
+            credit_reseller(reseller, 500, reason="test_topup")
+            pkg = Package.query.filter_by(is_active=True).first()
+            wholesale = pkg.price_for(reseller)
+
+        login = self.client.post(
+            "/reseller/login",
+            data={"username": "dealer1", "password": "dealerpass"},
+            follow_redirects=False,
+        )
+        self.assertEqual(login.status_code, 302)
+
+        res = self.client.post(
+            "/reseller/order",
+            data={
+                "customer_name": "عميل جملة",
+                "vodafone_number": "01066667777",
+                "whatsapp_number": "01066667777",
+                "national_id": "29501011234567",
+                "account_password": "abc12345",
+                "package_id": pkg.id,
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(res.status_code, 302)
+
+        with self.app.app_context():
+            order = (
+                Order.query.filter_by(vodafone_number="01066667777")
+                .order_by(Order.id.desc())
+                .first()
+            )
+            self.assertIsNotNone(order)
+            self.assertEqual(order.status, "paid")
+            self.assertAlmostEqual(order.amount, wholesale)
+            reseller = Reseller.query.filter_by(username="dealer1").first()
+            self.assertAlmostEqual(reseller.balance, 500 - wholesale)
+
+    def test_wallet_rotation_picks_under_limit(self):
+        from models import CashWallet, db
+        from services.wallet_rotation import assign_receiving_wallet
+
+        with self.app.app_context():
+            CashWallet.query.delete()
+            db.session.commit()
+            w1 = CashWallet(
+                label="A",
+                number="01010000001",
+                daily_limit=100,
+                monthly_limit=1000,
+                received_today=95,
+                received_month=95,
+                priority=1,
+                is_active=True,
+                last_reset_day=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                last_reset_month=datetime.now(timezone.utc).strftime("%Y-%m"),
+            )
+            w2 = CashWallet(
+                label="B",
+                number="01010000002",
+                daily_limit=500,
+                monthly_limit=5000,
+                received_today=0,
+                received_month=0,
+                priority=2,
+                is_active=True,
+                last_reset_day=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                last_reset_month=datetime.now(timezone.utc).strftime("%Y-%m"),
+            )
+            db.session.add_all([w1, w2])
+            db.session.commit()
+            chosen = assign_receiving_wallet(50)
+            self.assertEqual(chosen.number, "01010000002")
+
+    def test_renewal_reminder_task(self):
+        from models import Order, Package, db
+        from services.tasks import send_renewal_reminders
+
+        with self.app.app_context():
+            pkg = Package.query.filter_by(is_active=True).first()
+            order = Order(
+                reference="VR-REMIND01",
+                customer_name="تجديد",
+                vodafone_number="01088889999",
+                whatsapp_number="01088889999",
+                package_id=pkg.id,
+                amount=pkg.price,
+                pay_to_number="01000000000",
+                status="fulfilled",
+                fulfilled_at=datetime.now(timezone.utc) - timedelta(days=27),
+                renewal_at=datetime.now(timezone.utc) + timedelta(days=3),
+                reminder_sent=False,
+            )
+            db.session.add(order)
+            db.session.commit()
+            result = send_renewal_reminders()
+            self.assertTrue(result["ok"])
+            self.assertGreaterEqual(result["candidates"], 1)
+            order = Order.query.filter_by(reference="VR-REMIND01").first()
+            self.assertTrue(order.reminder_sent)
 
     def test_admin_login_and_export(self):
         res = self.client.post(

@@ -1,0 +1,78 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}محافظ الاستلام{% endblock %}
+{% block content %}
+<section class="admin-page">
+  <h1>تدوير محافظ الكاش</h1>
+  <p class="section-lead">أضف عدة محافظ وحدود يومية/شهرية — النظام يختار تلقائياً المحفظة المتاحة.</p>
+
+  <form method="post" class="order-form compact-form">
+    <input type="hidden" name="action" value="create" />
+    <h2>إضافة محفظة</h2>
+    <div class="form-grid">
+      <label>الاسم<input name="label" placeholder="محفظة 1" /></label>
+      <label>الرقم<input name="number" dir="ltr" required placeholder="010xxxxxxxx" /></label>
+      <label>المزوّد
+        <select name="provider">
+          <option value="vodafone_cash">فودافون كاش</option>
+          <option value="instapay">إنستاباي</option>
+          <option value="orange_cash">أورنج كاش</option>
+        </select>
+      </label>
+      <label>حد يومي<input name="daily_limit" type="number" value="50000" /></label>
+      <label>حد شهري<input name="monthly_limit" type="number" value="500000" /></label>
+      <label>أولوية (أقل = أولاً)<input name="priority" type="number" value="10" /></label>
+    </div>
+    <button class="btn btn-primary" type="submit">إضافة</button>
+  </form>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>المحفظة</th>
+          <th>اليوم / الحد</th>
+          <th>الشهر / الحد</th>
+          <th>متبقي اليوم</th>
+          <th>نشطة</th>
+          <th>تعديل</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for w in wallets %}
+        <tr>
+          <td>
+            <strong>{{ w.label }}</strong><br />
+            <span dir="ltr">{{ w.number }}</span><br />
+            <small>{{ w.provider }} · أولوية {{ w.priority }}</small>
+          </td>
+          <td>{{ '%.0f'|format(w.received_today or 0) }} / {{ '%.0f'|format(w.daily_limit) }}</td>
+          <td>{{ '%.0f'|format(w.received_month or 0) }} / {{ '%.0f'|format(w.monthly_limit) }}</td>
+          <td>{{ '%.0f'|format(w.remaining_today()) }}</td>
+          <td>{{ 'نعم' if w.is_active else 'لا' }}</td>
+          <td>
+            <form method="post" class="inline-edit-form">
+              <input type="hidden" name="action" value="update_limits" />
+              <input type="hidden" name="wallet_id" value="{{ w.id }}" />
+              <div class="form-grid">
+                <label>اسم<input name="label" value="{{ w.label }}" /></label>
+                <label>يومي<input name="daily_limit" type="number" value="{{ w.daily_limit }}" /></label>
+                <label>شهري<input name="monthly_limit" type="number" value="{{ w.monthly_limit }}" /></label>
+                <label>أولوية<input name="priority" type="number" value="{{ w.priority }}" /></label>
+              </div>
+              <button class="btn btn-primary btn-sm" type="submit">حفظ</button>
+            </form>
+            <form method="post" style="margin-top:0.4rem">
+              <input type="hidden" name="action" value="toggle" />
+              <input type="hidden" name="wallet_id" value="{{ w.id }}" />
+              <button class="btn btn-secondary btn-sm">{{ 'إيقاف' if w.is_active else 'تفعيل' }}</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6">لا توجد محافظ بعد</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

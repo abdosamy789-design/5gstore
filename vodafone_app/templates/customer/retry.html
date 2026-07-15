@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}إعادة المحاولة من المحفظة{% endblock %}
+{% block content %}
+<section class="section form-section">
+  <h1>إعادة تفعيل برقم آخر</h1>
+  <p class="section-lead">
+    رصيد المحفظة:
+    <strong>{% if wallet %}{{ '%.2f'|format(wallet.balance or 0) }} ج.م{% else %}0{% endif %}</strong>
+    — الطلب السابق {{ order.reference }}
+  </p>
+
+  {% if errors %}
+  <ul class="error-list">{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+  {% endif %}
+
+  <form method="post" class="order-form">
+    <label>
+      رقم فودافون الجديد
+      <input name="vodafone_number" required dir="ltr" placeholder="010xxxxxxxx" />
+    </label>
+    <fieldset>
+      <legend>الباقة</legend>
+      <div class="package-select">
+        {% for p in packages %}
+        <label class="pkg-option">
+          <input type="radio" name="package_id" value="{{ p.id }}" required
+            {% if p.id == order.package_id %}checked{% endif %} />
+          <span>
+            <strong>{{ p.name }}</strong>
+            <em>{{ '%.0f'|format(p.price) }} ج.م</em>
+          </span>
+        </label>
+        {% endfor %}
+      </div>
+    </fieldset>
+    <button class="btn btn-primary" type="submit">تحقق وادفع من المحفظة</button>
+  </form>
+</section>
+{% endblock %}

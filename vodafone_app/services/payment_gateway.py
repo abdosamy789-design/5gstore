@@ -143,7 +143,9 @@ def ingest_payment_message(
     if order and result["matched"]:
         try:
             from services.notifications import notify_order_update
+            from services.wallet_rotation import record_wallet_receipt
 
+            record_wallet_receipt(order.cash_wallet_id, order.amount)
             notify_order_update(order, event="payment_matched")
         except Exception:  # noqa: BLE001
             pass

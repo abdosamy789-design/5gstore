@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}لوحة الموزع{% endblock %}
+{% block content %}
+<section class="section form-section">
+  <div class="admin-page-head">
+    <div>
+      <h1>مرحباً {{ reseller.company_name or reseller.username }}</h1>
+      <p class="section-lead">رصيدك الحالي: <strong>{{ '%.2f'|format(reseller.balance or 0) }} ج.م</strong></p>
+    </div>
+    <a class="btn btn-secondary" href="{{ url_for('reseller_logout') }}">خروج</a>
+  </div>
+
+  <form method="post" action="{{ url_for('reseller_create_order') }}" class="order-form">
+    <h2>طلب جملة جديد</h2>
+    <label>اسم العميل<input name="customer_name" placeholder="اختياري" /></label>
+    <label>رقم فودافون<input name="vodafone_number" required dir="ltr" placeholder="010xxxxxxxx" /></label>
+    <label>واتساب<input name="whatsapp_number" dir="ltr" placeholder="نفس الرقم غالباً" /></label>
+    <label>الرقم القومي<input name="national_id" dir="ltr" maxlength="14" /></label>
+    <label>كلمة مرور الحساب<input name="account_password" type="password" /></label>
+    <fieldset>
+      <legend>الباقة (سعر الجملة)</legend>
+      <div class="package-select">
+        {% for p in packages %}
+        <label class="pkg-option">
+          <input type="radio" name="package_id" value="{{ p.id }}" required />
+          <span>
+            <strong>{{ p.name }}</strong>
+            <em>{{ '%.0f'|format(p.price_for(reseller)) }} ج.م</em>
+            <small>تجزئة {{ '%.0f'|format(p.price) }}</small>
+          </span>
+        </label>
+        {% endfor %}
+      </div>
+    </fieldset>
+    <button class="btn btn-primary" type="submit">تحقق وخصم من الرصيد</button>
+  </form>
+
+  <h2>آخر الطلبات</h2>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>المرجع</th><th>الخط</th><th>المبلغ</th><th>الحالة</th></tr>
+      </thead>
+      <tbody>
+        {% for o in orders %}
+        <tr>
+          <td dir="ltr">{{ o.reference }}</td>
+          <td dir="ltr">{{ o.vodafone_number }}</td>
+          <td>{{ '%.0f'|format(o.amount) }}</td>
+          <td>{{ status_labels.get(o.status, o.status) }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4">لا توجد طلبات</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
