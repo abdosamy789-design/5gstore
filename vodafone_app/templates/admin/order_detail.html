@@ -1,0 +1,34 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}طلب {{ order.reference }}{% endblock %}
+{% block content %}
+<section class="admin-page">
+  <h1>تفاصيل الطلب {{ order.reference }}</h1>
+
+  <div class="pay-panel">
+    <div class="pay-row"><span>العميل</span><strong>{{ order.customer_name }}</strong></div>
+    <div class="pay-row"><span>رقم الخط</span><strong dir="ltr">{{ order.vodafone_number }}</strong></div>
+    <div class="pay-row"><span>الرقم القومي</span><strong dir="ltr">{{ order.national_id or '—' }}</strong></div>
+    <div class="pay-row"><span>الباقة</span><strong>{{ order.package.name }}</strong></div>
+    <div class="pay-row"><span>المبلغ</span><strong>{{ '%.0f'|format(order.amount) }} ج.م</strong></div>
+    <div class="pay-row"><span>رقم الاستلام</span><strong dir="ltr">{{ order.pay_to_number }}</strong></div>
+    <div class="pay-row"><span>حوّل من</span><strong dir="ltr">{{ order.sender_number or '—' }}</strong></div>
+    <div class="pay-row"><span>الحالة</span><strong>{{ order.status }}</strong></div>
+    <div class="pay-row"><span>تاريخ الإنشاء</span><strong>{{ order.created_at }}</strong></div>
+  </div>
+
+  <form method="post" class="action-row">
+    <button name="action" value="mark_paid" class="btn btn-secondary">تأكيد الدفع يدوياً</button>
+    <button name="action" value="mark_fulfilled" class="btn btn-primary">تم تنفيذ الطلب</button>
+    <button name="action" value="reject" class="btn btn-danger">رفض</button>
+  </form>
+
+  <form method="post" class="order-form">
+    <input type="hidden" name="action" value="notes" />
+    <label>
+      ملاحظات
+      <textarea name="notes" rows="4">{{ order.notes }}</textarea>
+    </label>
+    <button type="submit" class="btn btn-secondary">حفظ الملاحظات</button>
+  </form>
+</section>
+{% endblock %}

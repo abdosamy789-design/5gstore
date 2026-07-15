@@ -1,0 +1,20 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}دخول المدير{% endblock %}
+{% block content %}
+<section class="login-panel">
+  <h1>دخول لوحة المدير</h1>
+  <p>أدخل اليوزر والباسورد عشان تشوف بيانات الطلبات.</p>
+  {% if error %}<p class="error-text">{{ error }}</p>{% endif %}
+  <form method="post" class="order-form">
+    <label>
+      اسم المستخدم
+      <input type="text" name="username" required autocomplete="username" />
+    </label>
+    <label>
+      كلمة المرور
+      <input type="password" name="password" required autocomplete="current-password" />
+    </label>
+    <button type="submit" class="btn btn-primary">دخول</button>
+  </form>
+</section>
+{% endblock %}

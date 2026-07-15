@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}حالة الطلب {{ order.reference }}{% endblock %}
+{% block content %}
+<section class="section status-section">
+  <h1>حالة طلبك</h1>
+
+  <div class="pay-panel">
+    <div class="pay-row">
+      <span>رقم الطلب</span>
+      <strong dir="ltr">{{ order.reference }}</strong>
+    </div>
+    <div class="pay-row">
+      <span>العميل</span>
+      <strong>{{ order.customer_name }}</strong>
+    </div>
+    <div class="pay-row">
+      <span>رقم الخط</span>
+      <strong dir="ltr">{{ order.vodafone_number }}</strong>
+    </div>
+    <div class="pay-row">
+      <span>الباقة</span>
+      <strong>{{ order.package.name }}</strong>
+    </div>
+    <div class="pay-row">
+      <span>المبلغ</span>
+      <strong>{{ '%.0f'|format(order.amount) }} ج.م</strong>
+    </div>
+    <div class="pay-row">
+      <span>رقم التحويل منه</span>
+      <strong dir="ltr">{{ order.sender_number or '—' }}</strong>
+    </div>
+    <div class="pay-row highlight">
+      <span>الحالة</span>
+      <strong class="status-{{ order.status }}">
+        {% if order.status == 'awaiting_payment' %}في انتظار الدفع
+        {% elif order.status == 'payment_submitted' %}تم تسجيل التحويل — جاري التحقق
+        {% elif order.status == 'paid' %}تم تأكيد الدفع
+        {% elif order.status == 'fulfilled' %}تم تنفيذ الطلب
+        {% elif order.status == 'rejected' %}مرفوض
+        {% else %}{{ order.status }}{% endif %}
+      </strong>
+    </div>
+  </div>
+
+  <div class="cta-row">
+    {% if order.status in ['awaiting_payment', 'payment_submitted'] %}
+    <a class="btn btn-secondary" href="{{ url_for('payment_page', reference=order.reference) }}">صفحة الدفع</a>
+    {% endif %}
+    <a class="btn btn-primary" href="{{ url_for('home') }}">العودة للرئيسية</a>
+  </div>
+</section>
+{% endblock %}

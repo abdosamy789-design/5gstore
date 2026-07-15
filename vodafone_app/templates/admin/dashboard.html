@@ -1,0 +1,44 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}لوحة المدير{% endblock %}
+{% block content %}
+<section class="admin-page">
+  <h1>نظرة عامة</h1>
+  <div class="stat-grid">
+    <div class="stat"><span>كل الطلبات</span><strong>{{ stats.orders }}</strong></div>
+    <div class="stat"><span>بانتظار الدفع/التحقق</span><strong>{{ stats.awaiting }}</strong></div>
+    <div class="stat"><span>مدفوع</span><strong>{{ stats.paid }}</strong></div>
+    <div class="stat"><span>تم التنفيذ</span><strong>{{ stats.fulfilled }}</strong></div>
+    <div class="stat"><span>باقات نشطة</span><strong>{{ stats.packages }}</strong></div>
+  </div>
+
+  <h2>آخر الطلبات</h2>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>المرجع</th>
+          <th>العميل</th>
+          <th>الخط</th>
+          <th>الباقة</th>
+          <th>المبلغ</th>
+          <th>الحالة</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for o in recent %}
+        <tr>
+          <td><a href="{{ url_for('admin_order_detail', order_id=o.id) }}">{{ o.reference }}</a></td>
+          <td>{{ o.customer_name }}</td>
+          <td dir="ltr">{{ o.vodafone_number }}</td>
+          <td>{{ o.package.name }}</td>
+          <td>{{ '%.0f'|format(o.amount) }}</td>
+          <td>{{ o.status }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6">لا توجد طلبات بعد</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
