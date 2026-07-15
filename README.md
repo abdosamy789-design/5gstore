@@ -3,7 +3,7 @@
 هذا الريبو يحتوي على:
 
 - مشروع Next.js الأصلي (لوحة إدارة خطوط)
-- تطبيق بايثون جديد لبيع باقات فودافون ريد مع بوابة دفع: انظر [`vodafone_app/README.md`](vodafone_app/README.md)
+- تطبيق بايثون (Flask) لمنصة فودافون ريد: تحقق حساب، دفع كاش/إنستاباي عبر SMS، لوحة مدير، تليجرام/واتساب — انظر [`vodafone_app/README.md`](vodafone_app/README.md)
 
 ## تشغيل متجر فودافون ريد (Python)
 
@@ -16,4 +16,4 @@ cp .env.example .env
 python run.py
 ```
 
-افتح http://127.0.0.1:5000 — دخول المدير: `admin` / `admin123`
+افتح http://127.0.0.1:5000 — دخول المدير: `admin` / `Admin@Red2026!`

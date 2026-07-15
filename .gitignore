@@ -39,6 +39,7 @@ yarn-error.log*
 **/*.py[cod]
 **/.venv/
 **/vodafone_store.db
+**/*.db
 **/*.egg-info/
 
 # vercel

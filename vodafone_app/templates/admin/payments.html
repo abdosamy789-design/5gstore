@@ -2,16 +2,18 @@
 {% block title %}رسائل بوابة الدفع{% endblock %}
 {% block content %}
 <section class="admin-page">
-  <h1>رسائل الدفع الواردة</h1>
-  <p class="section-lead">الرسائل اللي بتيجي من تطبيق الموبايل عبر لينك الـ webhook.</p>
+  <h1>رسائل الدفع الواردة (P2P SMS)</h1>
+  <p class="section-lead">رسائل فودافون كاش / إنستاباي / محافظ أخرى من تطبيق الموبايل.</p>
 
   <div class="table-wrap">
     <table>
       <thead>
         <tr>
           <th>#</th>
+          <th>المزوّد</th>
           <th>المرسل</th>
           <th>المبلغ</th>
+          <th>مرجع العملية</th>
           <th>مطابقة؟</th>
           <th>الطلب</th>
           <th>نص الرسالة</th>
@@ -22,8 +24,10 @@
         {% for e in events %}
         <tr>
           <td>{{ e.id }}</td>
+          <td>{{ e.provider or 'unknown' }}</td>
           <td dir="ltr">{{ e.sender_number or '—' }}</td>
           <td>{{ e.amount if e.amount is not none else '—' }}</td>
+          <td dir="ltr">{{ e.transaction_ref or '—' }}</td>
           <td>{{ 'نعم' if e.matched else 'لا' }}</td>
           <td>
             {% if e.order_id %}
@@ -34,7 +38,7 @@
           <td>{{ e.created_at.strftime('%Y-%m-%d %H:%M') if e.created_at else '' }}</td>
         </tr>
         {% else %}
-        <tr><td colspan="7">لا توجد رسائل بعد</td></tr>
+        <tr><td colspan="9">لا توجد رسائل بعد</td></tr>
         {% endfor %}
       </tbody>
     </table>
