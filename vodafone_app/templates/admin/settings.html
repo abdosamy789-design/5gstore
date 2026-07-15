@@ -21,6 +21,22 @@
       <span class="field-hint">POST على اللينك ده مع الهيدر X-Webhook-Token وجسم JSON فيه message</span>
     </label>
 
+    <fieldset>
+      <legend>إرسال رمز التحقق (OTP) لملكية الخط</legend>
+      <label>
+        وضع الإرسال
+        <select name="sms_mode">
+          <option value="demo" {% if sms_mode == 'demo' %}selected{% endif %}>تجريبي (يظهر الرمز في الصفحة)</option>
+          <option value="http" {% if sms_mode == 'http' %}selected{% endif %}>بوابة SMS عبر HTTP</option>
+        </select>
+      </label>
+      <label>
+        رابط بوابة الرسائل (لو اخترت HTTP)
+        <input name="sms_url" value="{{ sms_url }}" dir="ltr" placeholder="https://sms-provider.example/send" />
+        <span class="field-hint">هيستقبل POST JSON: {"to":"010...","message":"...","otp":"123456"}</span>
+      </label>
+    </fieldset>
+
     <label>
       تغيير كلمة مرور المدير (اختياري)
       <input type="password" name="new_password" minlength="6" placeholder="اتركه فاضي لو مش هتغير" />

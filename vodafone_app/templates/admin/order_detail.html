@@ -7,6 +7,7 @@
   <div class="pay-panel">
     <div class="pay-row"><span>العميل</span><strong>{{ order.customer_name }}</strong></div>
     <div class="pay-row"><span>رقم الخط</span><strong dir="ltr">{{ order.vodafone_number }}</strong></div>
+    <div class="pay-row"><span>التحقق من الخط</span><strong>{{ 'تم بـ OTP' if order.line_verified else 'لا' }}</strong></div>
     <div class="pay-row"><span>الرقم القومي</span><strong dir="ltr">{{ order.national_id or '—' }}</strong></div>
     <div class="pay-row"><span>الباقة</span><strong>{{ order.package.name }}</strong></div>
     <div class="pay-row"><span>المبلغ</span><strong>{{ '%.0f'|format(order.amount) }} ج.م</strong></div>

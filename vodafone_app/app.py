@@ -14,7 +14,8 @@ from flask import (
 )
 
 from config import Config
-from models import Admin, Order, Package, PaymentEvent, Setting, db
+from models import Admin, LineChallenge, Order, Package, PaymentEvent, Setting, db
+from services.otp_service import create_challenge, send_otp_sms, verify_otp
 from services.payment_gateway import ingest_payment_message
 from services.vodafone_validator import normalize_egypt_mobile, validate_vodafone_customer
 
@@ -26,11 +27,26 @@ def create_app(config_class=Config):
 
     with app.app_context():
         db.create_all()
+        _ensure_sqlite_columns()
         _seed_defaults(app)
 
     register_routes(app)
     return app
 
+
+def _ensure_sqlite_columns() -> None:
+    """Add new columns on existing SQLite DBs (create_all won't alter tables)."""
+    uri = str(db.engine.url)
+    if not uri.startswith("sqlite"):
+        return
+    with db.engine.begin() as conn:
+        cols = {
+            row[1] for row in conn.exec_driver_sql("PRAGMA table_info(orders)").fetchall()
+        }
+        if "line_verified" not in cols:
+            conn.exec_driver_sql(
+                "ALTER TABLE orders ADD COLUMN line_verified BOOLEAN DEFAULT 0"
+            )
 
 def _seed_defaults(app: Flask) -> None:
     if not Admin.query.filter_by(username=app.config["ADMIN_USERNAME"]).first():
@@ -53,6 +69,12 @@ def _seed_defaults(app: Flask) -> None:
                 value=app.config["PAYMENT_WEBHOOK_TOKEN"],
             )
         )
+
+    if not Setting.query.filter_by(key="sms_mode").first():
+        db.session.add(Setting(key="sms_mode", value=app.config.get("SMS_MODE", "demo")))
+
+    if not Setting.query.filter_by(key="sms_url").first():
+        db.session.add(Setting(key="sms_url", value=app.config.get("SMS_URL", "")))
 
     if Package.query.count() == 0:
         defaults = [
@@ -130,42 +152,146 @@ def register_routes(app: Flask) -> None:
 
     @app.route("/order", methods=["GET", "POST"])
     def start_order():
-        packages = (
-            Package.query.filter_by(is_active=True).order_by(Package.price.asc()).all()
-        )
+        """Step 1: collect name + Vodafone number, then send ownership OTP."""
         selected_id = request.args.get("package_id", type=int)
+        if selected_id:
+            session["pending_package_id"] = selected_id
 
         if request.method == "POST":
             name = (request.form.get("customer_name") or "").strip()
             number = request.form.get("vodafone_number") or ""
             national_id = (request.form.get("national_id") or "").strip()
-            package_id = request.form.get("package_id", type=int)
 
             ok, message, normalized = validate_vodafone_customer(number)
-            package = Package.query.filter_by(id=package_id, is_active=True).first()
-
             errors = []
             if len(name) < 3:
                 errors.append("اكتب الاسم بالكامل (3 حروف على الأقل).")
             if not ok:
                 errors.append(message)
-            if not package:
-                errors.append("اختر باقة صحيحة من القائمة.")
 
             if errors:
                 return render_template(
                     "customer/order.html",
-                    packages=packages,
-                    selected_id=package_id,
                     errors=errors,
                     form=request.form,
+                    step="identity",
+                )
+
+            challenge = create_challenge(normalized, customer_name=name)
+            mode = get_setting("sms_mode", "demo")
+            sms_url = get_setting("sms_url", "")
+            sent_ok, send_msg = send_otp_sms(
+                normalized, challenge.otp_code, mode=mode, sms_url=sms_url
+            )
+            if not sent_ok:
+                flash(send_msg, "error")
+                return render_template(
+                    "customer/order.html",
+                    errors=[send_msg],
+                    form=request.form,
+                    step="identity",
+                )
+
+            session["verify_token"] = challenge.token
+            session["customer_name"] = name
+            session["vodafone_number"] = normalized
+            session["national_id"] = national_id
+            session.pop("line_verified", None)
+            flash(send_msg, "success")
+            return redirect(url_for("verify_line"))
+
+        return render_template(
+            "customer/order.html",
+            errors=[],
+            form={},
+            step="identity",
+        )
+
+    @app.route("/verify-line", methods=["GET", "POST"])
+    def verify_line():
+        """Step 2: enter OTP to prove ownership of the Vodafone line."""
+        token = session.get("verify_token")
+        if not token:
+            flash("ابدأ بإدخال رقم الخط أولاً", "error")
+            return redirect(url_for("start_order"))
+
+        challenge = LineChallenge.query.filter_by(token=token).first()
+        if not challenge:
+            flash("جلسة التحقق انتهت. ابدأ من جديد.", "error")
+            return redirect(url_for("start_order"))
+
+        mode = get_setting("sms_mode", "demo")
+        show_demo_otp = mode == "demo" and not challenge.verified
+
+        if request.method == "POST":
+            action = request.form.get("action") or "verify"
+            if action == "resend":
+                challenge = create_challenge(
+                    challenge.vodafone_number, customer_name=challenge.customer_name
+                )
+                session["verify_token"] = challenge.token
+                sent_ok, send_msg = send_otp_sms(
+                    challenge.vodafone_number,
+                    challenge.otp_code,
+                    mode=get_setting("sms_mode", "demo"),
+                    sms_url=get_setting("sms_url", ""),
+                )
+                flash(send_msg if sent_ok else send_msg, "success" if sent_ok else "error")
+                return redirect(url_for("verify_line"))
+
+            code = (request.form.get("otp_code") or "").strip()
+            ok, message, challenge = verify_otp(token, code)
+            if not ok:
+                flash(message, "error")
+                return render_template(
+                    "customer/verify_line.html",
+                    number=session.get("vodafone_number"),
+                    show_demo_otp=show_demo_otp,
+                    demo_otp=challenge.otp_code if show_demo_otp and challenge else None,
+                )
+
+            session["line_verified"] = True
+            flash(message, "success")
+            return redirect(url_for("choose_package"))
+
+        return render_template(
+            "customer/verify_line.html",
+            number=session.get("vodafone_number"),
+            show_demo_otp=show_demo_otp,
+            demo_otp=challenge.otp_code if show_demo_otp else None,
+        )
+
+    @app.route("/choose-package", methods=["GET", "POST"])
+    def choose_package():
+        """Step 3: pick package after line ownership is verified."""
+        if not session.get("line_verified") or not session.get("vodafone_number"):
+            flash("لازم تتحقق من رقم الخط أولاً", "error")
+            return redirect(url_for("start_order"))
+
+        packages = (
+            Package.query.filter_by(is_active=True).order_by(Package.price.asc()).all()
+        )
+        selected_id = session.get("pending_package_id")
+
+        if request.method == "POST":
+            package_id = request.form.get("package_id", type=int)
+            package = Package.query.filter_by(id=package_id, is_active=True).first()
+            if not package:
+                return render_template(
+                    "customer/choose_package.html",
+                    packages=packages,
+                    selected_id=package_id,
+                    errors=["اختر باقة صحيحة من القائمة."],
+                    number=session.get("vodafone_number"),
+                    name=session.get("customer_name"),
                 )
 
             order = Order(
                 reference=make_reference(),
-                customer_name=name,
-                vodafone_number=normalized,
-                national_id=national_id,
+                customer_name=session.get("customer_name") or "",
+                vodafone_number=session.get("vodafone_number"),
+                national_id=session.get("national_id") or "",
+                line_verified=True,
                 package_id=package.id,
                 amount=package.price,
                 pay_to_number=get_setting(
@@ -175,14 +301,27 @@ def register_routes(app: Flask) -> None:
             )
             db.session.add(order)
             db.session.commit()
+
+            # Clear verification session after order is created
+            for key in (
+                "verify_token",
+                "line_verified",
+                "customer_name",
+                "vodafone_number",
+                "national_id",
+                "pending_package_id",
+            ):
+                session.pop(key, None)
+
             return redirect(url_for("payment_page", reference=order.reference))
 
         return render_template(
-            "customer/order.html",
+            "customer/choose_package.html",
             packages=packages,
             selected_id=selected_id,
             errors=[],
-            form={},
+            number=session.get("vodafone_number"),
+            name=session.get("customer_name"),
         )
 
     @app.route("/validate-number", methods=["POST"])
@@ -190,7 +329,6 @@ def register_routes(app: Flask) -> None:
         number = request.json.get("number", "") if request.is_json else ""
         ok, message, normalized = validate_vodafone_customer(number)
         return jsonify(ok=ok, message=message, normalized=normalized)
-
     @app.route("/pay/<reference>", methods=["GET", "POST"])
     def payment_page(reference):
         order = Order.query.filter_by(reference=reference).first_or_404()
@@ -407,11 +545,16 @@ def register_routes(app: Flask) -> None:
             cash = normalize_egypt_mobile(request.form.get("vodafone_cash_number") or "")
             token = (request.form.get("webhook_token") or "").strip()
             new_password = request.form.get("new_password") or ""
+            sms_mode = (request.form.get("sms_mode") or "demo").strip()
+            sms_url = (request.form.get("sms_url") or "").strip()
 
             if cash:
                 set_setting("vodafone_cash_number", cash)
             if token:
                 set_setting("webhook_token", token)
+            if sms_mode in ("demo", "http"):
+                set_setting("sms_mode", sms_mode)
+            set_setting("sms_url", sms_url)
             if new_password and len(new_password) >= 6:
                 admin = Admin.query.get(session["admin_id"])
                 admin.set_password(new_password)
@@ -425,8 +568,9 @@ def register_routes(app: Flask) -> None:
             cash_number=get_setting("vodafone_cash_number"),
             webhook_token=get_setting("webhook_token"),
             webhook_url=url_for("payment_webhook", _external=True),
+            sms_mode=get_setting("sms_mode", "demo"),
+            sms_url=get_setting("sms_url", ""),
         )
-
 
 app = create_app()
 

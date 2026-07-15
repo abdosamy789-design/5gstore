@@ -19,3 +19,5 @@ class Config:
         "PAYMENT_WEBHOOK_TOKEN", "mobile-app-secret-token"
     )
     VODAFONE_CASH_NUMBER = os.getenv("VODAFONE_CASH_NUMBER", "01000000000")
+    SMS_MODE = os.getenv("SMS_MODE", "demo")  # demo | http
+    SMS_URL = os.getenv("SMS_URL", "")
