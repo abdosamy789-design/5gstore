@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}فودافون ريد — تفعيل الباقات{% endblock %}
+{% block content %}
+<section class="hero">
+  <div class="hero-bg" aria-hidden="true"></div>
+  <div class="hero-content">
+    <p class="brand-hero">فودافون ريد</p>
+    <h1>فعّل باقتك خلال دقايق</h1>
+    <p class="hero-lead">سجّل برقم فودافون مصر، اختار الباقة، وادفع بفودافون كاش.</p>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="{{ url_for('start_order') }}">ابدأ الطلب</a>
+    </div>
+  </div>
+</section>
+
+<section class="section packages-section">
+  <h2>الباقات المتاحة</h2>
+  <p class="section-lead">باقات فودافون ريد اللي بنفعّلها بعد تأكيد الدفع.</p>
+  <div class="package-list">
+    {% for p in packages %}
+    <article class="package-row">
+      <div>
+        <h3>{{ p.name }}</h3>
+        <p>{{ p.description or 'باقة فودافون ريد' }}</p>
+        <p class="meta">{{ p.data_gb }} جيجا · {{ p.minutes }} دقيقة · {{ p.validity_days }} يوم</p>
+      </div>
+      <div class="package-actions">
+        <span class="price">{{ '%.0f'|format(p.price) }} ج.م</span>
+        <a class="btn btn-secondary" href="{{ url_for('start_order', package_id=p.id) }}">اختيار</a>
+      </div>
+    </article>
+    {% else %}
+    <p>لا توجد باقات حالياً.</p>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="section steps-section">
+  <h2>ازاي تطلب؟</h2>
+  <ol class="steps">
+    <li>سجّل بياناتك ورقم فودافون مصر (010)</li>
+    <li>اختار الباقة اللي محتاجها</li>
+    <li>حوّل المبلغ على رقم فودافون كاش الظاهر لك</li>
+    <li>اكتب رقم اللي حوّلت منه عشان يتم التأكيد</li>
+  </ol>
+</section>
+{% endblock %}

@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}الدفع — {{ order.reference }}{% endblock %}
+{% block content %}
+<section class="section payment-section">
+  <h1>إتمام الدفع</h1>
+  <p class="section-lead">حوّل مبلغ الباقة على رقم فودافون كاش التالي، ثم سجّل رقم اللي حوّلت منه.</p>
+
+  <div class="pay-panel">
+    <div class="pay-row">
+      <span>رقم الطلب</span>
+      <strong dir="ltr">{{ order.reference }}</strong>
+    </div>
+    <div class="pay-row">
+      <span>الباقة</span>
+      <strong>{{ order.package.name }}</strong>
+    </div>
+    <div class="pay-row highlight">
+      <span>المبلغ المطلوب</span>
+      <strong>{{ '%.0f'|format(order.amount) }} ج.م</strong>
+    </div>
+    <div class="pay-row pay-to">
+      <span>حوّل على رقم فودافون كاش</span>
+      <strong class="cash-number" dir="ltr">{{ order.pay_to_number }}</strong>
+    </div>
+    <div class="pay-row">
+      <span>رقم خط التفعيل</span>
+      <strong dir="ltr">{{ order.vodafone_number }}</strong>
+    </div>
+  </div>
+
+  {% if order.status in ['paid', 'fulfilled'] %}
+  <p class="status-banner ok">تم تأكيد الدفع بالفعل. حالة الطلب: {{ order.status }}</p>
+  <a class="btn btn-primary" href="{{ url_for('order_status', reference=order.reference) }}">متابعة حالة الطلب</a>
+  {% else %}
+  <form method="post" class="order-form">
+    <label>
+      رقم فودافون كاش اللي حوّلت منه
+      <input type="tel" name="sender_number" required placeholder="010xxxxxxxx"
+             value="{{ order.sender_number }}" dir="ltr" />
+      <span class="field-hint">اكتب نفس الرقم اللي ظهر في رسالة التحويل</span>
+    </label>
+    <button type="submit" class="btn btn-primary">تأكيد إرسال التحويل</button>
+  </form>
+  {% endif %}
+</section>
+{% endblock %}

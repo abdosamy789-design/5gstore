@@ -1,0 +1,41 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}إعدادات النظام{% endblock %}
+{% block content %}
+<section class="admin-page">
+  <h1>الإعدادات</h1>
+
+  <form method="post" class="order-form">
+    <label>
+      رقم فودافون كاش لاستلام التحويلات
+      <input name="vodafone_cash_number" value="{{ cash_number }}" dir="ltr" required />
+    </label>
+
+    <label>
+      توكن تطبيق الموبايل (X-Webhook-Token)
+      <input name="webhook_token" value="{{ webhook_token }}" dir="ltr" required />
+    </label>
+
+    <label>
+      لينك بوابة الدفع (حطه في الأبلكيشن)
+      <input type="text" value="{{ webhook_url }}" dir="ltr" readonly onclick="this.select()" />
+      <span class="field-hint">POST على اللينك ده مع الهيدر X-Webhook-Token وجسم JSON فيه message</span>
+    </label>
+
+    <label>
+      تغيير كلمة مرور المدير (اختياري)
+      <input type="password" name="new_password" minlength="6" placeholder="اتركه فاضي لو مش هتغير" />
+    </label>
+
+    <button type="submit" class="btn btn-primary">حفظ</button>
+  </form>
+
+  <div class="code-box">
+    <h2>مثال طلب من الموبايل</h2>
+    <pre dir="ltr">{
+  "message": "تم استلام 100 EGP من الرقم 01012345678",
+  "sender": "01012345678",
+  "amount": 100
+}</pre>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}طلب باقة جديدة{% endblock %}
+{% block content %}
+<section class="section form-section">
+  <h1>بيانات العميل والباقة</h1>
+  <p class="section-lead">أدخل بيانات فودافون مصر بوضوح. الموقع يتحقق إن الرقم تابع لفودافون (010).</p>
+
+  {% if errors %}
+  <ul class="error-list">
+    {% for e in errors %}<li>{{ e }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+
+  <form method="post" class="order-form" id="order-form">
+    <label>
+      الاسم بالكامل
+      <input type="text" name="customer_name" required minlength="3"
+             value="{{ form.get('customer_name', '') }}" placeholder="مثال: أحمد محمد" />
+    </label>
+
+    <label>
+      رقم فودافون مصر
+      <input type="tel" name="vodafone_number" id="vodafone_number" required
+             value="{{ form.get('vodafone_number', '') }}" placeholder="010xxxxxxxx" dir="ltr" />
+      <span class="field-hint" id="number-hint">لازم يبدأ بـ 010</span>
+    </label>
+
+    <label>
+      الرقم القومي (اختياري)
+      <input type="text" name="national_id" maxlength="14"
+             value="{{ form.get('national_id', '') }}" placeholder="14 رقم" dir="ltr" />
+    </label>
+
+    <fieldset>
+      <legend>اختر الباقة</legend>
+      <div class="package-select">
+        {% for p in packages %}
+        <label class="pkg-option">
+          <input type="radio" name="package_id" value="{{ p.id }}" required
+            {% if selected_id == p.id or (form.get('package_id')|string == p.id|string) %}checked{% endif %} />
+          <span>
+            <strong>{{ p.name }}</strong>
+            <em>{{ '%.0f'|format(p.price) }} ج.م</em>
+            <small>{{ p.data_gb }} جيجا · {{ p.minutes }} دقيقة</small>
+          </span>
+        </label>
+        {% endfor %}
+      </div>
+    </fieldset>
+
+    <button type="submit" class="btn btn-primary">متابعة للدفع</button>
+  </form>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const input = document.getElementById('vodafone_number');
+  const hint = document.getElementById('number-hint');
+  let timer;
+  input.addEventListener('input', () => {
+    clearTimeout(timer);
+    timer = setTimeout(async () => {
+      const number = input.value.trim();
+      if (number.length < 10) {
+        hint.textContent = 'لازم يبدأ بـ 010';
+        hint.className = 'field-hint';
+        return;
+      }
+      const res = await fetch('{{ url_for("validate_number_api") }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ number })
+      });
+      const data = await res.json();
+      hint.textContent = data.message;
+      hint.className = 'field-hint ' + (data.ok ? 'ok' : 'bad');
+    }, 350);
+  });
+</script>
+{% endblock %}
