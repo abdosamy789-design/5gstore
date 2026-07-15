@@ -35,7 +35,7 @@ python run.py
 ```
 
 - الموقع: http://127.0.0.1:5000
-- المدير: `/admin/login` — `admin` / `Admin@Red2026!`
+- المدير: `/admin/login` — `admin` / `admin`
 - الموزع: `/reseller/login`
 - المحفظة: `/wallet`
 

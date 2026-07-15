@@ -119,10 +119,12 @@ def _migrate_sqlite_columns() -> None:
 
 
 def _seed_defaults(app: Flask) -> None:
-    if not Admin.query.filter_by(username=app.config["ADMIN_USERNAME"]).first():
+    admin = Admin.query.filter_by(username=app.config["ADMIN_USERNAME"]).first()
+    if not admin:
         admin = Admin(username=app.config["ADMIN_USERNAME"])
-        admin.set_password(app.config["ADMIN_PASSWORD"])
         db.session.add(admin)
+    # Keep configured admin credentials in sync with .env / defaults
+    admin.set_password(app.config["ADMIN_PASSWORD"])
 
     defaults_settings = {
         "vodafone_cash_number": app.config["VODAFONE_CASH_NUMBER"],

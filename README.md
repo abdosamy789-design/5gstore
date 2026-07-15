@@ -18,4 +18,4 @@ export CELERY_TASK_ALWAYS_EAGER=1
 python run.py
 ```
 
-افتح http://127.0.0.1:5000 — المدير: `admin` / `Admin@Red2026!` — الموزع: `/reseller/login`
+افتح http://127.0.0.1:5000 — المدير: `admin` / `admin` — الموزع: `/reseller/login`
