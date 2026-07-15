@@ -26,6 +26,10 @@
       <strong>{{ '%.0f'|format(order.amount) }} ج.م</strong>
     </div>
     <div class="pay-row">
+      <span>التحقق من الخط</span>
+      <strong>{{ 'تم بـ OTP' if order.line_verified else '—' }}</strong>
+    </div>
+    <div class="pay-row">
       <span>رقم التحويل منه</span>
       <strong dir="ltr">{{ order.sender_number or '—' }}</strong>
     </div>

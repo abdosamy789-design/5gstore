@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}اختيار الباقة{% endblock %}
+{% block content %}
+<section class="section form-section">
+  <h1>اختر الباقة</h1>
+  <p class="section-lead">
+    تم التحقق من الخط
+    <strong dir="ltr">{{ number }}</strong>
+    {% if name %}لـ {{ name }}{% endif %}.
+    اختار باقة فودافون ريد للمتابعة للدفع.
+  </p>
+
+  <ol class="mini-steps">
+    <li>البيانات</li>
+    <li>رمز التحقق</li>
+    <li class="active">الباقة</li>
+    <li>الدفع</li>
+  </ol>
+
+  {% if errors %}
+  <ul class="error-list">
+    {% for e in errors %}<li>{{ e }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+
+  <form method="post" class="order-form">
+    <fieldset>
+      <legend>الباقات المتاحة</legend>
+      <div class="package-select">
+        {% for p in packages %}
+        <label class="pkg-option">
+          <input type="radio" name="package_id" value="{{ p.id }}" required
+            {% if selected_id == p.id %}checked{% endif %} />
+          <span>
+            <strong>{{ p.name }}</strong>
+            <em>{{ '%.0f'|format(p.price) }} ج.م</em>
+            <small>{{ p.data_gb }} جيجا · {{ p.minutes }} دقيقة · {{ p.validity_days }} يوم</small>
+          </span>
+        </label>
+        {% endfor %}
+      </div>
+    </fieldset>
+    <button type="submit" class="btn btn-primary">متابعة للدفع</button>
+  </form>
+</section>
+{% endblock %}

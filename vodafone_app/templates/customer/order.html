@@ -2,8 +2,18 @@
 {% block title %}طلب باقة جديدة{% endblock %}
 {% block content %}
 <section class="section form-section">
-  <h1>بيانات العميل والباقة</h1>
-  <p class="section-lead">أدخل بيانات فودافون مصر بوضوح. الموقع يتحقق إن الرقم تابع لفودافون (010).</p>
+  <h1>التحقق من رقم الخط</h1>
+  <p class="section-lead">
+    اكتب رقم فودافون مصر. الموقع يتأكد إنه رقم فودافون (010)،
+    وبعدين يبعت رمز تحقق على الخط عشان يثبت إن الرقم بتاعك — من غير باسورد أنا فودافون.
+  </p>
+
+  <ol class="mini-steps">
+    <li class="active">البيانات</li>
+    <li>رمز التحقق</li>
+    <li>الباقة</li>
+    <li>الدفع</li>
+  </ol>
 
   {% if errors %}
   <ul class="error-list">
@@ -19,7 +29,7 @@
     </label>
 
     <label>
-      رقم فودافون مصر
+      رقم خط فودافون مصر
       <input type="tel" name="vodafone_number" id="vodafone_number" required
              value="{{ form.get('vodafone_number', '') }}" placeholder="010xxxxxxxx" dir="ltr" />
       <span class="field-hint" id="number-hint">لازم يبدأ بـ 010</span>
@@ -31,24 +41,7 @@
              value="{{ form.get('national_id', '') }}" placeholder="14 رقم" dir="ltr" />
     </label>
 
-    <fieldset>
-      <legend>اختر الباقة</legend>
-      <div class="package-select">
-        {% for p in packages %}
-        <label class="pkg-option">
-          <input type="radio" name="package_id" value="{{ p.id }}" required
-            {% if selected_id == p.id or (form.get('package_id')|string == p.id|string) %}checked{% endif %} />
-          <span>
-            <strong>{{ p.name }}</strong>
-            <em>{{ '%.0f'|format(p.price) }} ج.م</em>
-            <small>{{ p.data_gb }} جيجا · {{ p.minutes }} دقيقة</small>
-          </span>
-        </label>
-        {% endfor %}
-      </div>
-    </fieldset>
-
-    <button type="submit" class="btn btn-primary">متابعة للدفع</button>
+    <button type="submit" class="btn btn-primary">إرسال رمز التحقق</button>
   </form>
 </section>
 {% endblock %}

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}تأكيد ملكية الخط{% endblock %}
+{% block content %}
+<section class="section form-section">
+  <h1>أدخل رمز التحقق</h1>
+  <p class="section-lead">
+    اتبعت رمز على الرقم
+    <strong dir="ltr">{{ number }}</strong>
+    — أدخله هنا عشان نأكد إن الخط صحيح وإنك تمتلكه.
+  </p>
+
+  <ol class="mini-steps">
+    <li>البيانات</li>
+    <li class="active">رمز التحقق</li>
+    <li>الباقة</li>
+    <li>الدفع</li>
+  </ol>
+
+  {% if show_demo_otp and demo_otp %}
+  <div class="demo-otp">
+    <span>وضع تجريبي (لسه مفيش بوابة SMS)</span>
+    <strong dir="ltr">{{ demo_otp }}</strong>
+  </div>
+  {% endif %}
+
+  <form method="post" class="order-form">
+    <input type="hidden" name="action" value="verify" />
+    <label>
+      رمز التحقق (6 أرقام)
+      <input type="text" name="otp_code" required maxlength="6" minlength="4"
+             inputmode="numeric" autocomplete="one-time-code"
+             placeholder="••••••" dir="ltr" class="otp-input" />
+    </label>
+    <button type="submit" class="btn btn-primary">تأكيد الرقم</button>
+  </form>
+
+  <form method="post" class="resend-form">
+    <input type="hidden" name="action" value="resend" />
+    <button type="submit" class="btn btn-secondary">إعادة إرسال الرمز</button>
+  </form>
+</section>
+{% endblock %}

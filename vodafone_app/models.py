@@ -57,6 +57,7 @@ class Order(db.Model):
     customer_name = db.Column(db.String(120), nullable=False)
     vodafone_number = db.Column(db.String(20), nullable=False)
     national_id = db.Column(db.String(20), default="")
+    line_verified = db.Column(db.Boolean, default=False)
 
     package_id = db.Column(db.Integer, db.ForeignKey("packages.id"), nullable=False)
     amount = db.Column(db.Float, nullable=False)
@@ -95,3 +96,20 @@ class PaymentEvent(db.Model):
     created_at = db.Column(db.DateTime, default=utcnow)
 
     order = db.relationship("Order", back_populates="payment_events")
+
+
+class LineChallenge(db.Model):
+    """OTP challenge proving the customer controls a Vodafone Egypt line."""
+
+    __tablename__ = "line_challenges"
+
+    id = db.Column(db.Integer, primary_key=True)
+    token = db.Column(db.String(48), unique=True, nullable=False, index=True)
+    vodafone_number = db.Column(db.String(20), nullable=False, index=True)
+    customer_name = db.Column(db.String(120), default="")
+    otp_code = db.Column(db.String(10), nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    attempts = db.Column(db.Integer, default=0)
+    verified = db.Column(db.Boolean, default=False)
+    verified_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=utcnow)
