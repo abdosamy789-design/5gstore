@@ -37,6 +37,21 @@
       <input name="telegram_chat_id" value="{{ telegram_chat_id }}" dir="ltr" />
     </label>
 
+    <h2>بوابة SMS لرمز التحقق (OTP)</h2>
+    <p class="field-hint">
+      يُستخدم لإرسال رمز التحقق (OTP) الذي يثبت أن رقم فودافون صحيح ويخص العميل 100%.
+      اربط أي مزود SMS مصري محلي عبر Webhook يستقبل JSON: {"phone", "message", "api_key"}.
+      لو تركته فاضياً، سيُرسل الرمز عبر واتساب (نفس إعدادات واتساب أدناه) كبديل.
+    </p>
+    <label>
+      SMS Webhook URL
+      <input name="sms_webhook_url" value="{{ sms_webhook_url }}" dir="ltr" />
+    </label>
+    <label>
+      SMS API Key (اختياري حسب المزود)
+      <input name="sms_api_key" value="{{ sms_api_key }}" dir="ltr" autocomplete="off" />
+    </label>
+
     <h2>تنبيهات العميل (واتساب)</h2>
     <label>
       مزود الواتساب
@@ -59,11 +74,18 @@
       <input name="whatsapp_webhook_url" value="{{ whatsapp_webhook_url }}" dir="ltr" />
     </label>
 
-    <h2>الأمان</h2>
+    <h2>الأمان والتحقق من الحساب</h2>
     <label>
       وضع التحقق من فودافون (من ملف .env)
       <input type="text" value="{{ verify_mode }}" dir="ltr" readonly />
-      <span class="field-hint">mock أو prefix أو live — غيّره عبر VODAFONE_VERIFY_MODE</span>
+      <span class="field-hint">
+        <strong>otp</strong> (موصى به): يرفض التسجيل تلقائياً لو الرقم غلط أو غير مؤكد،
+        ويكمل فقط لو العميل أدخل رمز التحقق الصحيح المرسل لرقمه —
+        <strong>mock</strong>: تحقق شكلي للتجربة فقط وليس تحققاً حقيقياً —
+        <strong>live</strong>: محاولة تسجيل دخول حقيقية عبر Playwright (رفض تلقائي عند أي شك) —
+        <strong>prefix</strong>: تحقق من نطاق الترقيم فقط.
+        غيّره عبر VODAFONE_VERIFY_MODE في ملف .env.
+      </span>
     </label>
     <label>
       تغيير كلمة مرور المدير (8 أحرف على الأقل)

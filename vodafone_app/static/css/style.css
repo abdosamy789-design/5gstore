@@ -269,6 +269,15 @@ a:hover { text-decoration: underline; }
 .field-hint.ok { color: var(--ok); }
 .field-hint.bad { color: var(--bad); }
 
+.otp-block {
+  display: grid;
+  gap: 0.6rem;
+  padding: 1rem;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  background: rgba(230, 0, 0, 0.04);
+}
+
 .package-select { display: grid; gap: 0.6rem; }
 
 .pkg-option {

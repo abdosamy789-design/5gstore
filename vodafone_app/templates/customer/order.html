@@ -3,7 +3,14 @@
 {% block content %}
 <section class="section form-section">
   <h1>بيانات العميل والتحقق</h1>
-  <p class="section-lead">أدخل بيانات حساب فودافون مصر. يتم التحقق قبل الانتقال لصفحة الدفع.</p>
+  <p class="section-lead">
+    {% if verify_mode == 'otp' %}
+    نتأكد <strong>100%</strong> أن رقم فودافون صحيح ويخصك عن طريق رمز تحقق (OTP) يُرسل لهاتفك،
+    قبل الاستمرار في التسجيل. لو الرقم غلط أو الرمز غير صحيح، هيتم رفض الطلب تلقائياً.
+    {% else %}
+    أدخل بيانات حساب فودافون مصر. يتم التحقق قبل الانتقال لصفحة الدفع.
+    {% endif %}
+  </p>
 
   {% if errors %}
   <ul class="error-list">
@@ -25,45 +32,67 @@
       <span class="field-hint" id="number-hint">لازم يبدأ بـ 010</span>
     </label>
 
-    <label>
-      رقم واتساب للتنبيهات
-      <input type="tel" name="whatsapp_number" id="whatsapp_number"
-             value="{{ form.get('whatsapp_number', '') }}" placeholder="01xxxxxxxxx" dir="ltr" />
-      <span class="field-hint">لو فاضي هنستخدم رقم فودافون</span>
-    </label>
+    {% if verify_mode == 'otp' %}
+    <div class="otp-block" id="otp-block">
+      <button type="button" class="btn btn-secondary" id="send-otp-btn">إرسال رمز التحقق (OTP)</button>
+      <span class="field-hint" id="otp-send-hint"></span>
 
-    <label>
-      الرقم القومي
-      <input type="text" name="national_id" maxlength="14" id="national_id"
-             value="{{ form.get('national_id', '') }}" placeholder="14 رقم" dir="ltr" />
-      <span class="field-hint">يُشفَّر في قاعدة البيانات</span>
-    </label>
+      <label id="otp-code-wrap" style="display:none">
+        رمز التحقق المكوّن من 6 أرقام
+        <input type="text" id="otp_code" maxlength="6" inputmode="numeric" dir="ltr" placeholder="000000" />
+      </label>
+      <button type="button" class="btn btn-primary" id="verify-otp-btn" style="display:none">تأكيد الرمز</button>
+      <span class="field-hint" id="otp-verify-hint"></span>
+      <p class="field-hint" id="otp-confirmed-hint" style="display:none">
+        ✅ تم تأكيد أن الرقم صحيح 100% — كمّل باقي البيانات بالأسفل.
+      </p>
+    </div>
+    <input type="hidden" name="otp_token" id="otp_token" value="" />
+    {% endif %}
 
-    <label>
-      كلمة مرور حساب ماي فودافون (للتحقق)
-      <input type="password" name="account_password" id="account_password"
-             value="" placeholder="اختياري حسب وضع التحقق" autocomplete="off" />
-      <span class="field-hint" id="verify-hint">تُشفَّر ولا تُعرض في لوحة المدير كنص صريح</span>
-    </label>
+    <div id="rest-of-form" {% if verify_mode == 'otp' %}style="display:none"{% endif %}>
+      <label>
+        رقم واتساب للتنبيهات
+        <input type="tel" name="whatsapp_number" id="whatsapp_number"
+               value="{{ form.get('whatsapp_number', '') }}" placeholder="01xxxxxxxxx" dir="ltr" />
+        <span class="field-hint">لو فاضي هنستخدم رقم فودافون</span>
+      </label>
 
-    <fieldset>
-      <legend>اختر الباقة</legend>
-      <div class="package-select">
-        {% for p in packages %}
-        <label class="pkg-option">
-          <input type="radio" name="package_id" value="{{ p.id }}" required
-            {% if selected_id == p.id or (form.get('package_id')|string == p.id|string) %}checked{% endif %} />
-          <span>
-            <strong>{{ p.name }}</strong>
-            <em>{{ '%.0f'|format(p.price) }} ج.م</em>
-            <small>{{ p.data_gb }} جيجا · {{ p.minutes }} دقيقة</small>
-          </span>
-        </label>
-        {% endfor %}
-      </div>
-    </fieldset>
+      <label>
+        الرقم القومي
+        <input type="text" name="national_id" maxlength="14" id="national_id"
+               value="{{ form.get('national_id', '') }}" placeholder="14 رقم" dir="ltr" />
+        <span class="field-hint">يُشفَّر في قاعدة البيانات</span>
+      </label>
 
-    <button type="submit" class="btn btn-primary" id="submit-btn">تحقق ومتابعة للدفع</button>
+      {% if verify_mode != 'otp' %}
+      <label>
+        كلمة مرور حساب ماي فودافون (للتحقق)
+        <input type="password" name="account_password" id="account_password"
+               value="" placeholder="اختياري حسب وضع التحقق" autocomplete="off" />
+        <span class="field-hint" id="verify-hint">تُشفَّر ولا تُعرض في لوحة المدير كنص صريح</span>
+      </label>
+      {% endif %}
+
+      <fieldset>
+        <legend>اختر الباقة</legend>
+        <div class="package-select">
+          {% for p in packages %}
+          <label class="pkg-option">
+            <input type="radio" name="package_id" value="{{ p.id }}" required
+              {% if selected_id == p.id or (form.get('package_id')|string == p.id|string) %}checked{% endif %} />
+            <span>
+              <strong>{{ p.name }}</strong>
+              <em>{{ '%.0f'|format(p.price) }} ج.م</em>
+              <small>{{ p.data_gb }} جيجا · {{ p.minutes }} دقيقة</small>
+            </span>
+          </label>
+          {% endfor %}
+        </div>
+      </fieldset>
+
+      <button type="submit" class="btn btn-primary" id="submit-btn">تحقق ومتابعة للدفع</button>
+    </div>
   </form>
 </section>
 {% endblock %}
@@ -92,5 +121,78 @@
       hint.className = 'field-hint ' + (data.ok ? 'ok' : 'bad');
     }, 350);
   });
+
+  {% if verify_mode == 'otp' %}
+  const sendBtn = document.getElementById('send-otp-btn');
+  const sendHint = document.getElementById('otp-send-hint');
+  const codeWrap = document.getElementById('otp-code-wrap');
+  const verifyBtn = document.getElementById('verify-otp-btn');
+  const verifyHint = document.getElementById('otp-verify-hint');
+  const confirmedHint = document.getElementById('otp-confirmed-hint');
+  const otpCode = document.getElementById('otp_code');
+  const otpToken = document.getElementById('otp_token');
+  const restForm = document.getElementById('rest-of-form');
+
+  sendBtn.addEventListener('click', async () => {
+    const number = input.value.trim();
+    if (number.length < 10) {
+      sendHint.textContent = 'اكتب رقم فودافون صحيح أولاً';
+      sendHint.className = 'field-hint bad';
+      return;
+    }
+    sendBtn.disabled = true;
+    sendHint.textContent = 'جاري الإرسال...';
+    sendHint.className = 'field-hint';
+    try {
+      const res = await fetch('{{ url_for("otp_request_api") }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ number })
+      });
+      const data = await res.json();
+      sendHint.textContent = data.message;
+      sendHint.className = 'field-hint ' + (data.ok ? 'ok' : 'bad');
+      if (data.ok) {
+        codeWrap.style.display = '';
+        verifyBtn.style.display = '';
+      }
+    } finally {
+      sendBtn.disabled = false;
+    }
+  });
+
+  verifyBtn.addEventListener('click', async () => {
+    const number = input.value.trim();
+    const code = otpCode.value.trim();
+    if (code.length !== 6) {
+      verifyHint.textContent = 'اكتب الرمز المكوّن من 6 أرقام';
+      verifyHint.className = 'field-hint bad';
+      return;
+    }
+    verifyBtn.disabled = true;
+    try {
+      const res = await fetch('{{ url_for("otp_verify_api") }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ number, code })
+      });
+      const data = await res.json();
+      verifyHint.textContent = data.message;
+      verifyHint.className = 'field-hint ' + (data.ok ? 'ok' : 'bad');
+      if (data.ok && data.token) {
+        otpToken.value = data.token;
+        restForm.style.display = '';
+        confirmedHint.style.display = '';
+        sendBtn.disabled = true;
+        otpCode.disabled = true;
+        input.readOnly = true;
+      } else {
+        verifyBtn.disabled = false;
+      }
+    } catch (e) {
+      verifyBtn.disabled = false;
+    }
+  });
+  {% endif %}
 </script>
 {% endblock %}

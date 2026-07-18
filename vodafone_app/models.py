@@ -231,6 +231,20 @@ class Order(db.Model):
         return nid[:3] + "••••••" + nid[-3:]
 
 
+class OtpChallenge(db.Model):
+    """One-time verification codes proving ownership of a Vodafone number."""
+
+    __tablename__ = "otp_challenges"
+
+    id = db.Column(db.Integer, primary_key=True)
+    phone = db.Column(db.String(20), nullable=False, index=True)
+    code_hash = db.Column(db.String(128), nullable=False)
+    attempts = db.Column(db.Integer, default=0)
+    verified = db.Column(db.Boolean, default=False)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    created_at = db.Column(db.DateTime, default=utcnow)
+
+
 class PaymentEvent(db.Model):
     __tablename__ = "payment_events"
 

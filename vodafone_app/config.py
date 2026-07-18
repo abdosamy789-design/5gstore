@@ -23,7 +23,8 @@ class Config:
     VODAFONE_CASH_NUMBER = os.getenv("VODAFONE_CASH_NUMBER", "01000000000")
     INSTAPAY_ADDRESS = os.getenv("INSTAPAY_ADDRESS", "")
 
-    VODAFONE_VERIFY_MODE = os.getenv("VODAFONE_VERIFY_MODE", "mock")
+    # otp (recommended, real verification) | prefix | mock (demo only) | live (best-effort)
+    VODAFONE_VERIFY_MODE = os.getenv("VODAFONE_VERIFY_MODE", "otp")
     VODAFONE_PORTAL_URL = os.getenv(
         "VODAFONE_PORTAL_URL", "https://web.vodafone.com.eg/ar/home"
     )
@@ -34,6 +35,8 @@ class Config:
     WHATSAPP_API_KEY = os.getenv("WHATSAPP_API_KEY", "")
     WHATSAPP_INSTANCE_ID = os.getenv("WHATSAPP_INSTANCE_ID", "")
     WHATSAPP_WEBHOOK_URL = os.getenv("WHATSAPP_WEBHOOK_URL", "")
+    SMS_WEBHOOK_URL = os.getenv("SMS_WEBHOOK_URL", "")
+    SMS_API_KEY = os.getenv("SMS_API_KEY", "")
 
     ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY", "")
 

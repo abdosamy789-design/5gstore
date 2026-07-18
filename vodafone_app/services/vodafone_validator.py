@@ -51,33 +51,43 @@ def validate_vodafone_customer(number: str) -> tuple[bool, str, str | None]:
 
 
 def verify_mode() -> str:
-    return (os.getenv("VODAFONE_VERIFY_MODE") or "mock").strip().lower()
+    return (os.getenv("VODAFONE_VERIFY_MODE") or "otp").strip().lower()
 
 
 def verify_vodafone_account(
     number: str,
     password: str | None = None,
     national_id: str | None = None,
+    otp_token: str | None = None,
+    mode_override: str | None = None,
 ) -> dict:
     """
     Verify Vodafone Egypt customer account before payment.
 
-    Modes (VODAFONE_VERIFY_MODE):
+    Modes (VODAFONE_VERIFY_MODE, or `mode_override` per call):
+      - otp:    (recommended, default) customer must prove ownership of the
+                number via a one-time SMS/WhatsApp code before continuing —
+                wrong/unowned numbers are rejected outright.
       - prefix: numbering-range check only
-      - mock:   prefix + credential format checks (default / CI-safe)
-      - live:   Playwright against My Vodafone portal
+      - mock:   prefix + credential format checks — for CI/demo, NOT a real check
+      - live:   best-effort Playwright login against My Vodafone (fail-closed:
+                any doubt or portal failure rejects the request)
     """
     ok, message, normalized = validate_vodafone_customer(number)
     if not ok:
         return {
             "ok": False,
             "normalized": None,
-            "mode": verify_mode(),
+            "mode": mode_override or verify_mode(),
             "message": message,
             "details": {},
         }
 
-    mode = verify_mode()
+    mode = (mode_override or verify_mode()).strip().lower()
+
+    if mode == "otp":
+        return _verify_otp_token(normalized, otp_token or "")
+
     if mode == "prefix":
         return {
             "ok": True,
@@ -91,6 +101,40 @@ def verify_vodafone_account(
         return _verify_live(normalized, password or "", national_id or "")
 
     return _verify_mock(normalized, password or "", national_id or "")
+
+
+def _verify_otp_token(number: str, token: str) -> dict:
+    """
+    Strict pass/fail gate: the number is only accepted if the customer
+    already confirmed a one-time code sent to it (see services/otp.py).
+    """
+    from services.otp import validate_verification_token
+
+    if not token:
+        return {
+            "ok": False,
+            "normalized": number,
+            "mode": "otp",
+            "message": "لم يتم تأكيد رقم فودافون برمز التحقق (OTP). اطلب الرمز وتحقق منه أولاً.",
+            "details": {"check": "otp", "reason": "missing_token"},
+        }
+
+    if not validate_verification_token(number, token):
+        return {
+            "ok": False,
+            "normalized": number,
+            "mode": "otp",
+            "message": "رمز التحقق غير مطابق لهذا الرقم أو منتهي الصلاحية. اطلب رمزاً جديداً.",
+            "details": {"check": "otp", "reason": "invalid_or_expired_token"},
+        }
+
+    return {
+        "ok": True,
+        "normalized": number,
+        "mode": "otp",
+        "message": "تم تأكيد أن رقم فودافون صحيح ويخص العميل 100% عبر رمز تحقق (OTP).",
+        "details": {"check": "otp"},
+    }
 
 
 def _verify_mock(number: str, password: str, national_id: str) -> dict:
@@ -136,11 +180,15 @@ def _verify_mock(number: str, password: str, national_id: str) -> dict:
 
 def _verify_live(number: str, password: str, national_id: str) -> dict:
     """
-    Attempt live verification via Playwright against My Vodafone.
+    Best-effort live verification via Playwright against My Vodafone.
 
     Requires: pip install playwright && playwright install chromium
-    Portal UI changes may require selector updates — failures fall back
-    gracefully with a clear Arabic message.
+
+    Fail-closed by design: this function only returns ok=True when it has
+    clear positive evidence of a successful login. Any ambiguity, portal
+    error, or inability to reach the login form results in rejection —
+    we never "soft pass" a real account check. Prefer VODAFONE_VERIFY_MODE=otp
+    for a guaranteed, legitimate way to confirm the number is genuine.
     """
     portal = os.getenv(
         "VODAFONE_PORTAL_URL", "https://web.vodafone.com.eg/ar/home"
@@ -159,8 +207,17 @@ def _verify_live(number: str, password: str, national_id: str) -> dict:
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
-        logger.warning("Playwright not installed; falling back to mock")
-        return _verify_mock(number, password, national_id)
+        logger.warning("Playwright not installed; rejecting live verification")
+        return {
+            "ok": False,
+            "normalized": number,
+            "mode": "live",
+            "message": (
+                "متطلبات التحقق الحي (Playwright) غير مثبتة على الخادم. "
+                "استخدم وضع otp أو ثبّت playwright وشغّل playwright install chromium."
+            ),
+            "details": {**details, "reason": "playwright_missing"},
+        }
 
     try:
         with sync_playwright() as p:
@@ -215,14 +272,16 @@ def _verify_live(number: str, password: str, national_id: str) -> dict:
 
             if not filled_user:
                 browser.close()
-                # Portal layout unknown — accept prefix + credential presence
-                fallback = _verify_mock(number, password, national_id)
-                fallback["message"] = (
-                    "تعذر الوصول لنموذج تسجيل الدخول؛ تم التحقق الأساسي من الرقم."
-                )
-                fallback["details"] = {**details, **fallback["details"]}
-                fallback["mode"] = "live"
-                return fallback
+                return {
+                    "ok": False,
+                    "normalized": number,
+                    "mode": "live",
+                    "message": (
+                        "تعذر الوصول لنموذج تسجيل الدخول في بوابة فودافون؛ "
+                        "تم رفض الطلب للحيطة (لم يتم تأكيد صحة البيانات)."
+                    ),
+                    "details": {**details, "reason": "login_form_not_found"},
+                }
 
             # Try submit
             for sel in [
@@ -274,33 +333,28 @@ def _verify_live(number: str, password: str, national_id: str) -> dict:
                     "ok": True,
                     "normalized": number,
                     "mode": "live",
-                    "message": "تم التحقق الحي من حساب فودافون مصر.",
+                    "message": "تم التحقق الحي من حساب فودافون مصر بنجاح.",
                     "details": {**details, "url": url_now},
                 }
 
-            # Ambiguous — treat as soft pass with note
+            # Ambiguous result — fail closed, we never soft-pass a real account check
             return {
-                "ok": True,
+                "ok": False,
                 "normalized": number,
                 "mode": "live",
-                "message": "تم إرسال بيانات الحساب للبوابة؛ لم يُرصد رفض صريح.",
+                "message": (
+                    "لم يتم تأكيد نجاح تسجيل الدخول بوضوح من بوابة فودافون؛ "
+                    "تم رفض الطلب للحيطة. حاول مرة أخرى أو استخدم وضع otp."
+                ),
                 "details": {**details, "url": url_now, "ambiguous": True},
             }
 
-    except Exception as exc:  # noqa: BLE001 — surface portal failures to UI
+    except Exception as exc:  # noqa: BLE001 — surface portal failures, fail closed
         logger.exception("Live Vodafone verification failed")
-        fallback = _verify_mock(number, password, national_id)
-        if fallback["ok"]:
-            fallback["message"] = (
-                "تعذر الاتصال ببوابة فودافون حالياً؛ تم قبول التحقق الأساسي من الرقم."
-            )
-            fallback["details"] = {"live_error": str(exc), **fallback["details"]}
-            fallback["mode"] = "live"
-            return fallback
         return {
             "ok": False,
             "normalized": number,
             "mode": "live",
-            "message": f"فشل التحقق الحي: {exc}",
-            "details": details,
+            "message": f"فشل الاتصال ببوابة فودافون: {exc}. أعد المحاولة أو استخدم وضع otp.",
+            "details": {**details, "live_error": str(exc)},
         }

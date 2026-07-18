@@ -121,6 +121,40 @@ def notify_customer_whatsapp(phone: str, message: str) -> bool:
         return False
 
 
+def send_sms(phone: str, message: str) -> bool:
+    """
+    Generic outbound SMS gateway used for OTP delivery.
+
+    Configure `sms_webhook_url` (and optional `sms_api_key`) in admin
+    settings to plug in any local Egyptian SMS aggregator. POSTs
+    {"phone": "20...", "message": "...", "api_key": "..."} as JSON.
+    """
+    if not phone:
+        return False
+    hook = _setting("sms_webhook_url")
+    if not hook:
+        return False
+
+    digits = "".join(c for c in phone if c.isdigit())
+    if digits.startswith("0") and len(digits) == 11:
+        digits = "20" + digits[1:]
+
+    try:
+        resp = requests.post(
+            hook,
+            json={
+                "phone": digits,
+                "message": message,
+                "api_key": _setting("sms_api_key") or None,
+            },
+            timeout=15,
+        )
+        return resp.ok
+    except requests.RequestException as exc:
+        logger.warning("SMS webhook error: %s", exc)
+        return False
+
+
 def order_status_message(order) -> str:
     status = STATUS_AR.get(order.status, order.status)
     pkg = order.package.name if order.package else "-"
@@ -162,6 +196,8 @@ def init_notification_defaults(app: Flask) -> None:
         "whatsapp_api_key": app.config.get("WHATSAPP_API_KEY", ""),
         "whatsapp_instance_id": app.config.get("WHATSAPP_INSTANCE_ID", ""),
         "whatsapp_webhook_url": app.config.get("WHATSAPP_WEBHOOK_URL", ""),
+        "sms_webhook_url": app.config.get("SMS_WEBHOOK_URL", ""),
+        "sms_api_key": app.config.get("SMS_API_KEY", ""),
     }
     for key, value in defaults.items():
         if not Setting.query.filter_by(key=key).first():

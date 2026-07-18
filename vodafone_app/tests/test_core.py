@@ -22,6 +22,7 @@ os.environ["PAYMENT_WEBHOOK_TOKEN"] = "test-webhook-token"
 os.environ["DATABASE_URL"] = f"sqlite:///{_DB}"
 os.environ["CELERY_TASK_ALWAYS_EAGER"] = "1"
 os.environ["CELERY_EAGER"] = "1"
+os.environ["OTP_DEBUG_ECHO"] = "1"
 
 
 class CryptoTests(unittest.TestCase):
@@ -330,6 +331,125 @@ class AppFlowTests(unittest.TestCase):
             self.assertGreaterEqual(result["candidates"], 1)
             order = Order.query.filter_by(reference="VR-REMIND01").first()
             self.assertTrue(order.reminder_sent)
+
+    def test_otp_rejects_wrong_code_and_accepts_correct_code(self):
+        from services.otp import confirm_otp, request_otp, validate_verification_token
+
+        with self.app.app_context():
+            number = "01033334444"
+            result = request_otp(number)
+            self.assertTrue(result["ok"])
+            self.assertIn("debug_code", result)
+            code = result["debug_code"]
+
+            wrong_code = "000000" if code != "000000" else "111111"
+            wrong = confirm_otp(number, wrong_code)
+            self.assertFalse(wrong["ok"])
+
+            right = confirm_otp(number, code)
+            self.assertTrue(right["ok"])
+            token = right["token"]
+            self.assertTrue(validate_verification_token(number, token))
+            self.assertFalse(validate_verification_token(number, "garbage-token"))
+            self.assertFalse(validate_verification_token("01099998888", token))
+
+            # Code is single-use: re-confirming the same challenge fails
+            reused = confirm_otp(number, code)
+            self.assertFalse(reused["ok"])
+
+    def test_verify_vodafone_account_otp_mode_is_strict(self):
+        from services.otp import confirm_otp, request_otp
+        from services.vodafone_validator import verify_vodafone_account
+
+        with self.app.app_context():
+            number = "01055556666"
+
+            no_token = verify_vodafone_account(number, mode_override="otp")
+            self.assertFalse(no_token["ok"])
+
+            bogus_token = verify_vodafone_account(
+                number, otp_token="not-a-real-token", mode_override="otp"
+            )
+            self.assertFalse(bogus_token["ok"])
+
+            req = request_otp(number)
+            conf = confirm_otp(number, req["debug_code"])
+            self.assertTrue(conf["ok"])
+
+            accepted = verify_vodafone_account(
+                number, otp_token=conf["token"], mode_override="otp"
+            )
+            self.assertTrue(accepted["ok"])
+            self.assertEqual(accepted["mode"], "otp")
+
+    def test_order_registration_rejected_then_accepted_via_otp(self):
+        """End-to-end: force global mode to otp and confirm strict reject/accept."""
+        from models import Order, Package
+
+        old_mode = os.environ.get("VODAFONE_VERIFY_MODE")
+        os.environ["VODAFONE_VERIFY_MODE"] = "otp"
+        number = "01077778888"
+        try:
+            with self.app.app_context():
+                package_id = Package.query.filter_by(is_active=True).first().id
+
+            # Without an OTP token, registration is rejected outright — no
+            # order row is ever created.
+            res = self.client.post(
+                "/order",
+                data={
+                    "customer_name": "محمد إبراهيم",
+                    "vodafone_number": number,
+                    "whatsapp_number": number,
+                    "package_id": package_id,
+                },
+                follow_redirects=False,
+            )
+            self.assertEqual(res.status_code, 200)
+            self.assertIn("لم يتم تأكيد".encode("utf-8"), res.data)
+            with self.app.app_context():
+                self.assertIsNone(Order.query.filter_by(vodafone_number=number).first())
+
+            # Request one OTP, then exercise both the wrong-code rejection and
+            # the correct-code acceptance against that same challenge.
+            request_res = self.client.post("/api/otp/request", json={"number": number})
+            code = request_res.get_json()["debug_code"]
+
+            wrong_verify = self.client.post(
+                "/api/otp/verify", json={"number": number, "code": "000000"}
+            )
+            self.assertFalse(wrong_verify.get_json()["ok"])
+
+            right_verify = self.client.post(
+                "/api/otp/verify", json={"number": number, "code": code}
+            )
+            payload = right_verify.get_json()
+            self.assertTrue(payload["ok"])
+            token = payload["token"]
+
+            res2 = self.client.post(
+                "/order",
+                data={
+                    "customer_name": "محمد إبراهيم",
+                    "vodafone_number": number,
+                    "whatsapp_number": number,
+                    "package_id": package_id,
+                    "otp_token": token,
+                },
+                follow_redirects=False,
+            )
+            self.assertEqual(res2.status_code, 302)
+            with self.app.app_context():
+                order = Order.query.filter_by(vodafone_number=number).first()
+                self.assertIsNotNone(order)
+                self.assertTrue(order.account_verified)
+                self.assertEqual(order.verification_mode, "otp")
+                self.assertEqual(order.status, "awaiting_payment")
+        finally:
+            if old_mode is not None:
+                os.environ["VODAFONE_VERIFY_MODE"] = old_mode
+            else:
+                os.environ.pop("VODAFONE_VERIFY_MODE", None)
 
     def test_admin_login_and_export(self):
         res = self.client.post(

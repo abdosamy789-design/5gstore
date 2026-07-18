@@ -39,6 +39,7 @@ from services.reseller_billing import credit_reseller, debit_reseller
 from services.vodafone_validator import (
     normalize_egypt_mobile,
     validate_vodafone_customer,
+    verify_mode,
 )
 from services.wallet_rotation import seed_cash_wallet_from_setting
 
@@ -242,6 +243,8 @@ def register_routes(app: Flask) -> None:
         )
         selected_id = request.args.get("package_id", type=int)
 
+        current_mode = verify_mode()
+
         if request.method == "POST":
             from services.tasks import enqueue_verification
 
@@ -252,6 +255,7 @@ def register_routes(app: Flask) -> None:
             account_password = (request.form.get("account_password") or "").strip()
             package_id = request.form.get("package_id", type=int)
             use_wallet = request.form.get("use_wallet") == "1"
+            otp_token = (request.form.get("otp_token") or "").strip()
 
             ok, message, normalized = validate_vodafone_customer(number)
             package = Package.query.filter_by(id=package_id, is_active=True).first()
@@ -267,6 +271,17 @@ def register_routes(app: Flask) -> None:
             if not package:
                 errors.append("اختر باقة صحيحة من القائمة.")
 
+            # Strict, fail-closed gate: reject registration outright unless
+            # the number was already proven correct via OTP (see /api/otp/*).
+            if current_mode == "otp" and ok:
+                from services.otp import validate_verification_token
+
+                if not validate_verification_token(normalized, otp_token):
+                    errors.append(
+                        "لم يتم تأكيد أن رقم فودافون صحيح. اضغط 'إرسال رمز التحقق'، "
+                        "أدخل الرمز الذي استلمته، ثم أعد المحاولة."
+                    )
+
             wallet = None
             if use_wallet and wa_norm:
                 wallet = CustomerWallet.query.filter_by(phone=wa_norm).first()
@@ -280,6 +295,7 @@ def register_routes(app: Flask) -> None:
                     selected_id=package_id,
                     errors=errors,
                     form=request.form,
+                    verify_mode=current_mode,
                 )
 
             order = Order(
@@ -303,7 +319,7 @@ def register_routes(app: Flask) -> None:
             db.session.commit()
 
             # Async verification (eager mode runs inline when configured)
-            enqueue_verification(order.id)
+            enqueue_verification(order.id, otp_token=otp_token)
             db.session.refresh(order)
 
             if use_wallet and wallet and order.status == "awaiting_payment":
@@ -336,6 +352,7 @@ def register_routes(app: Flask) -> None:
             selected_id=selected_id,
             errors=[],
             form={},
+            verify_mode=current_mode,
         )
 
     @app.route("/validate-number", methods=["POST"])
@@ -343,6 +360,22 @@ def register_routes(app: Flask) -> None:
         number = request.json.get("number", "") if request.is_json else ""
         ok, message, normalized = validate_vodafone_customer(number)
         return jsonify(ok=ok, message=message, normalized=normalized)
+
+    @app.route("/api/otp/request", methods=["POST"])
+    def otp_request_api():
+        from services.otp import request_otp
+
+        data = request.get_json(silent=True) or {}
+        result = request_otp(data.get("number", ""))
+        return jsonify(result)
+
+    @app.route("/api/otp/verify", methods=["POST"])
+    def otp_verify_api():
+        from services.otp import confirm_otp
+
+        data = request.get_json(silent=True) or {}
+        result = confirm_otp(data.get("number", ""), data.get("code", ""))
+        return jsonify(result)
 
     @app.route("/api/order/<reference>/status")
     def order_status_api(reference):
@@ -526,7 +559,10 @@ def register_routes(app: Flask) -> None:
             new_order.national_id = old.national_id
             db.session.add(new_order)
             db.session.commit()
-            enqueue_verification(new_order.id)
+            # Wallet-funded retry is already tied to a verified customer record;
+            # re-run a lightweight (non-OTP) check rather than blocking on a
+            # fresh OTP round-trip here.
+            enqueue_verification(new_order.id, mode_override="mock")
             db.session.refresh(new_order)
             if new_order.status == "awaiting_payment":
                 debit_wallet(
@@ -686,7 +722,9 @@ def register_routes(app: Flask) -> None:
         db.session.add(order)
         db.session.commit()
 
-        enqueue_verification(order.id)
+        # Reseller portal is a trusted, staff-mediated flow without an OTP UI,
+        # so it uses the format-based check regardless of the global OTP mode.
+        enqueue_verification(order.id, mode_override="mock")
         db.session.refresh(order)
 
         if order.status == "awaiting_payment":
@@ -1058,6 +1096,8 @@ def register_routes(app: Flask) -> None:
                 "whatsapp_api_key",
                 "whatsapp_instance_id",
                 "whatsapp_webhook_url",
+                "sms_webhook_url",
+                "sms_api_key",
             ):
                 if key in request.form:
                     set_setting(key, (request.form.get(key) or "").strip())
@@ -1085,7 +1125,9 @@ def register_routes(app: Flask) -> None:
             whatsapp_api_key=get_setting("whatsapp_api_key"),
             whatsapp_instance_id=get_setting("whatsapp_instance_id"),
             whatsapp_webhook_url=get_setting("whatsapp_webhook_url"),
-            verify_mode=app.config.get("VODAFONE_VERIFY_MODE", "mock"),
+            sms_webhook_url=get_setting("sms_webhook_url"),
+            sms_api_key=get_setting("sms_api_key"),
+            verify_mode=verify_mode(),
         )
 
 

@@ -25,7 +25,9 @@ def _app_context():
 
 
 @celery_app.task(name="services.tasks.verify_order_account", bind=True)
-def verify_order_account(self, order_id: int) -> dict:
+def verify_order_account(
+    self, order_id: int, otp_token: str | None = None, mode_override: str | None = None
+) -> dict:
     """Run Vodafone account verification off the request thread."""
     with _app_context():
         from models import Order, db
@@ -45,6 +47,8 @@ def verify_order_account(self, order_id: int) -> dict:
             order.vodafone_number,
             password=order.account_password,
             national_id=order.national_id,
+            otp_token=otp_token,
+            mode_override=mode_override,
         )
 
         order.verification_mode = result.get("mode") or ""
@@ -172,6 +176,8 @@ def reset_cash_wallet_counters() -> dict:
         return refresh_all_wallet_periods()
 
 
-def enqueue_verification(order_id: int):
+def enqueue_verification(
+    order_id: int, otp_token: str | None = None, mode_override: str | None = None
+):
     """Helper used by web routes — eager-safe."""
-    return verify_order_account.delay(order_id)
+    return verify_order_account.delay(order_id, otp_token, mode_override)
