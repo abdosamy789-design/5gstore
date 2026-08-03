@@ -8,8 +8,11 @@ import "./globals.css";
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: "Mobile Line Manager",
-  description: "Converted from ReactJS to NextJS",
+  title: {
+    default: "فايف جي ستور | إدارة خطوط المحمول",
+    template: "%s | فايف جي ستور",
+  },
+  description: "منصة متكاملة لإدارة خطوط المحمول والعملاء والموزعين والمدفوعات.",
 };
 
 export default function RootLayout({
@@ -18,7 +21,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="ar" dir="rtl">
       <body
         className={inter.className}
       >

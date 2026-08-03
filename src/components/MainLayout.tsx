@@ -101,10 +101,10 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     
     const selectedCompany = companies.find(c => c.id === selectedCompanyId);
     const pathname = usePathname();
-    const isLoginPage = pathname === '/login';
+    const isPublicPage = pathname === '/' || pathname === '/login';
 
-    // 1. Show loading screen while data is being fetched, but only if we are not on the login page.
-    if (isLoading && !isLoginPage) {
+    // 1. Show loading screen while data is being fetched, but only on protected pages.
+    if (isLoading && !isPublicPage) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
                 <p className="text-xl text-gray-800 dark:text-gray-200">Loading application data...</p>
@@ -112,8 +112,8 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         );
     }
 
-    // 2. Redirect to login if not authenticated and not on the login page
-    if (!auth && !isLoginPage) {
+    // 2. Redirect to login if not authenticated and not on a public page
+    if (!auth && !isPublicPage) {
         // This should be handled by the login page redirect, but as a fallback:
         if (typeof window !== 'undefined') {
             router.push('/login');
@@ -121,8 +121,8 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         return null;
     }
 
-    // 3. If we are on the login page, we should not render the MainLayout chrome (sidebar, header, etc.)
-    if (isLoginPage) {
+    // 3. Public pages render without the application chrome.
+    if (isPublicPage) {
         return <>{children}</>;
     }
 
